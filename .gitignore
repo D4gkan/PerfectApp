@@ -1,0 +1,31 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Gradle and Kotlin build caches
+.gradle/
+.kotlin/
+**/build/
+.tmp/
+
+# Local machine configuration
+local.properties
+
+# Native build output
+.cxx/
+.externalNativeBuild/
+
+# Android tooling output
+captures/
+*.apk
+*.aab
+*.apks
+
+# JVM crash logs
+hs_err_pid*
+
+# Operating system files
+.DS_Store
+Thumbs.db
