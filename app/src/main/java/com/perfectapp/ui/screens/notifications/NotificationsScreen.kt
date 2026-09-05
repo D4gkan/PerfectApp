@@ -1,5 +1,12 @@
 package com.perfectapp.ui.screens.notifications
 
+import android.app.AlarmManager
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -28,6 +38,18 @@ import com.perfectapp.ui.components.SectionHeader
 fun NotificationsScreen(settingsRepository: SettingsRepository) {
     val context = LocalContext.current
     val settings by settingsRepository.settings.collectAsState(initial = AppSettings())
+    val alarmManager = remember { context.getSystemService(AlarmManager::class.java) }
+    var preciseTimingAllowed by remember {
+        mutableStateOf(Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms())
+    }
+    val exactAlarmAccessLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        preciseTimingAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        if (preciseTimingAllowed) {
+            (context.applicationContext as? com.perfectapp.PerfectApp)?.rescheduleDailySummaryWork()
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -54,6 +76,32 @@ fun NotificationsScreen(settingsRepository: SettingsRepository) {
                     MetricRow(label = "Subscriptions", value = "Renewing within 3 days")
                     MetricRow(label = "Vehicle service", value = "Within 300 km")
                     MetricRow(label = "Calendar", value = "Today's next event")
+                }
+            }
+        }
+
+        if (!preciseTimingAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            item {
+                PremiumCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        Text(
+                            "Android may delay reminders to save battery. Allow precise timing " +
+                                "so alerts can arrive at their scheduled time while the app is closed.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = {
+                            exactAlarmAccessLauncher.launch(
+                                Intent(
+                                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                    Uri.parse("package:${context.packageName}")
+                                )
+                            )
+                        }) {
+                            Text("Allow Precise Timing")
+                        }
+                    }
                 }
             }
         }

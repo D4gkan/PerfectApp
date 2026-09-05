@@ -54,7 +54,7 @@ and no dependency on an internet connection.
 ### Android-native utility
 
 - Four Glance home-screen widgets for dashboard data, schedules, events, and reminders
-- WorkManager-powered notifications and daily summaries
+- AlarmManager wake-ups with WorkManager-powered notification delivery and daily summaries
 - Notifications rescheduled after device reboot
 - Local backup and restore support
 - Adaptive launcher icon and a dark premium Material 3 theme
@@ -76,7 +76,7 @@ Perfect App is deliberately offline-first.
 - **UI:** Jetpack Compose and Material 3
 - **Architecture:** MVVM with repositories, ViewModels, Coroutines, and Flow
 - **Persistence:** Room Database and DataStore Preferences
-- **Background work:** WorkManager and Android notifications
+- **Background work:** AlarmManager, WorkManager, and Android notifications
 - **Widgets:** Jetpack Glance
 - **Build:** Gradle Kotlin DSL, Android Gradle Plugin, Kotlin Symbol Processing
 

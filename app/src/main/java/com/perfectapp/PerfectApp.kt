@@ -2,14 +2,10 @@ package com.perfectapp
 
 import android.app.Application
 import androidx.work.Configuration
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.perfectapp.domain.notifications.AppWorkerFactory
 import com.perfectapp.domain.notifications.DailySummaryWorker
-import java.time.Duration
-import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
+import com.perfectapp.domain.notifications.NotificationAlarmScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,21 +41,9 @@ class PerfectApp : Application() {
     }
 
     fun scheduleDailySummaryWork(hour: Int = 8, minute: Int = 0) {
-        val now = LocalDateTime.now()
-        var nextRun = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
-        if (!nextRun.isAfter(now)) {
-            nextRun = nextRun.plusDays(1)
-        }
-        val initialDelayMinutes = Duration.between(now, nextRun).toMinutes().coerceAtLeast(0)
-
-        val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(initialDelayMinutes, TimeUnit.MINUTES)
-            .build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            DailySummaryWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.UPDATE,
-            request
-        )
+        // Remove schedules created by older versions, then use a wake-up alarm. WorkManager is
+        // intentionally deferrable and can otherwise wait until opening the app wakes it up.
+        WorkManager.getInstance(this).cancelUniqueWork(DailySummaryWorker.WORK_NAME)
+        NotificationAlarmScheduler(this).scheduleDaily(hour, minute)
     }
 }

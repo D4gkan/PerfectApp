@@ -102,5 +102,6 @@ class DailySummaryWorker(
 
     companion object {
         const val WORK_NAME = "daily_summary"
+        const val ALARM_WORK_NAME = "daily_summary_alarm_delivery"
     }
 }
