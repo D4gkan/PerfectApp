@@ -159,13 +159,13 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
                         }
                     }
                     if (tall) Row(GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
-                        Column(GlanceModifier.defaultWeight()) {
-                            Label("PROTEIN")
-                            SmallText("%.0f / %d g".format(data.protein, data.proteinGoal), widgetText)
+                        Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
+                            SmallText("Protein %.0f/%d g".format(data.protein, data.proteinGoal), widgetMuted)
+                            LinearProgressIndicator((data.protein / data.proteinGoal.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
                         }
                         Column(GlanceModifier.defaultWeight()) {
-                            Label("CARBS")
-                            SmallText("%.0f / %d g".format(data.carbs, data.carbsGoal), widgetText)
+                            SmallText("Carbs %.0f/%d g".format(data.carbs, data.carbsGoal), widgetMuted)
+                            LinearProgressIndicator((data.carbs / data.carbsGoal.coerceAtLeast(1)).toFloat().coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
                         }
                     }
                 }
