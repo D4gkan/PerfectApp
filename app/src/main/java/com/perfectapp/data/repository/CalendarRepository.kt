@@ -20,11 +20,19 @@ class CalendarRepository(db: PerfectDatabase, private val context: Context? = nu
         scheduler?.schedule(event.copy(id = id)); context?.let { com.perfectapp.ui.widgets.WidgetRefresh.request(it) }
     }
     suspend fun updateEvent(event: CalendarEventEntity) = dao.update(event).also {
+        stopActiveAlarm(event.id)
         scheduler?.schedule(event); context?.let { com.perfectapp.ui.widgets.WidgetRefresh.request(it) }
     }
     suspend fun deleteEvent(event: CalendarEventEntity) = dao.delete(event).also {
+        stopActiveAlarm(event.id)
         scheduler?.cancel(event.id); context?.let { com.perfectapp.ui.widgets.WidgetRefresh.request(it) }
     }
     suspend fun eventById(id: Long) = dao.getById(id)
+    private fun stopActiveAlarm(id: Long) {
+        if (com.perfectapp.domain.notifications.EventAlarmService.active.value.containsKey(id)) {
+            context?.startService(android.content.Intent(context, com.perfectapp.domain.notifications.EventAlarmService::class.java)
+                .setAction(com.perfectapp.domain.notifications.EventAlarmService.STOP).putExtra("id", id))
+        }
+    }
     suspend fun rescheduleReminders() = dao.futureWithReminders(LocalDateTime.now()).forEach { scheduler?.schedule(it) }
 }

@@ -106,6 +106,8 @@ fun NotificationsScreen(settingsRepository: SettingsRepository) {
             }
         }
 
+        item { SectionHeader(title = "Event alarms") }
+        item { Column { EventAlarmPermissions() } }
         item { SectionHeader(title = "Test") }
         item {
             PremiumCard(modifier = Modifier.fillMaxWidth()) {

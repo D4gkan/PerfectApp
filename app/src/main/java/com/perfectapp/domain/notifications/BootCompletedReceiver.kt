@@ -10,7 +10,8 @@ class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_TIME_CHANGED ||
-            intent.action == Intent.ACTION_TIMEZONE_CHANGED
+            intent.action == Intent.ACTION_TIMEZONE_CHANGED ||
+            intent.action == android.app.AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
         ) {
             (context.applicationContext as? PerfectApp)?.rescheduleDailySummaryWork()
         }

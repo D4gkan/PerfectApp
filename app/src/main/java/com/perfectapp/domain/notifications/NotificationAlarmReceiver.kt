@@ -30,8 +30,19 @@ class NotificationAlarmReceiver : BroadcastReceiver() {
             NotificationAlarmScheduler.KIND_EVENT -> {
                 val id = intent.getLongExtra(NotificationAlarmScheduler.EXTRA_ID, 0L)
                 if (id == 0L) return
+                if (intent.getIntExtra("ring", 0) == 1) {
+                    try {
+                        androidx.core.content.ContextCompat.startForegroundService(context,
+                            Intent(context, EventAlarmService::class.java)
+                                .putExtra("id", id).putExtra("event_time", intent.getStringExtra("event_time")))
+                        return
+                    } catch (_: IllegalStateException) {
+                        // Without exact-alarm access Android may deny a background service.
+                    }
+                }
                 val request = OneTimeWorkRequestBuilder<EventReminderWorker>()
-                    .setInputData(Data.Builder().putLong(EventReminderWorker.KEY_EVENT_ID, id).build())
+                    .setInputData(Data.Builder().putLong(EventReminderWorker.KEY_EVENT_ID, id)
+                        .putString("alert_time", intent.getStringExtra("event_time")).build())
                     .build()
                 workManager.enqueueUniqueWork("event_alarm_delivery_$id", ExistingWorkPolicy.REPLACE, request)
             }

@@ -32,10 +32,10 @@ class NotificationAlarmScheduler(context: Context) {
         )
     }
 
-    fun scheduleEvent(eventId: Long, alertAt: LocalDateTime) {
+    fun scheduleEvent(eventId: Long, alertAt: LocalDateTime, ring: Boolean = false) {
         schedule(
             triggerAtMillis = alertAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
-            pendingIntent = pendingIntent(KIND_EVENT, eventId)
+            pendingIntent = pendingIntent(KIND_EVENT, eventId, mapOf("ring" to if (ring) 1 else 0, "event_time" to alertAt.toString()))
         )
     }
 

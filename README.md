@@ -86,6 +86,7 @@ Validation: debug and minified release builds and 18 unit tests pass, including 
 
 - One responsive Today home-screen widget for events, reminders, daily progress, and money
 - AlarmManager wake-ups with WorkManager-powered notification delivery and daily summaries
+- Event reminders scheduled **at event time** ring and vibrate continuously until you press **Stop alarm**, with a lock-screen alarm screen; earlier reminders remain normal notifications
 - Notifications rescheduled after device reboot
 - Local backup and restore support
 - Adaptive launcher icon and a dark premium Material 3 theme
@@ -144,6 +145,10 @@ extend.
 2. Allow Gradle to sync and download dependencies from Google Maven and Maven Central.
 3. Select an API 26+ device or emulator.
 4. Run the `app` configuration.
+
+For event alarms scheduled at event time, allow **precise alarms** when Android prompts for
+that access. Without it, Android may defer the alarm and the event is delivered as a normal
+notification instead.
 
 To build a release APK from a terminal:
 

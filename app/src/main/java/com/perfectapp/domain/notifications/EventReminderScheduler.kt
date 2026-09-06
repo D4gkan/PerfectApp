@@ -11,12 +11,13 @@ class EventReminderScheduler(private val context: Context) {
         val minutes = event.reminderMinutesBefore ?: return
         val alertAt = event.dateTime.minusMinutes(minutes.toLong())
         if (!alertAt.isAfter(LocalDateTime.now())) return
-        NotificationAlarmScheduler(context).scheduleEvent(event.id, alertAt)
+        NotificationAlarmScheduler(context).scheduleEvent(event.id, alertAt, minutes == 0)
     }
 
     fun cancel(eventId: Long) {
         NotificationAlarmScheduler(context).cancelEvent(eventId)
         WorkManager.getInstance(context).cancelUniqueWork(workName(eventId))
+        WorkManager.getInstance(context).cancelUniqueWork("event_alarm_delivery_$eventId")
     }
 
     private fun workName(eventId: Long) = "calendar_reminder_$eventId"

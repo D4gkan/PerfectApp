@@ -99,6 +99,9 @@ fun AddEventScreen(
                     }
                 }
             }
+            if (reminderMinutes == 0) {
+                item { com.perfectapp.ui.screens.notifications.EventAlarmPermissions() }
+            }
             item {
                 OutlinedTextField(
                     value = title, onValueChange = { title = it },

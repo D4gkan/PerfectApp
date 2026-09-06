@@ -17,6 +17,9 @@ class EventReminderWorker(
         if (!settings.notificationsEnabled || !settings.calendarNotifications) return Result.success()
         val id = inputData.getLong(KEY_EVENT_ID, 0L)
         val event = container.calendarRepository.eventById(id) ?: return Result.success()
+        if (event.reminderMinutesBefore == null) return Result.success()
+        val expected = inputData.getString("alert_time")
+        if (expected != null && event.dateTime.minusMinutes(event.reminderMinutesBefore.toLong()).toString() != expected) return Result.success()
         NotificationHelper(applicationContext).showNotification(
             id = NotificationHelper.eventNotificationId(event.id),
             title = event.title,
