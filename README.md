@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/build-v1.0.1-9b111e?style=for-the-badge" alt="Build v1.0.1" />
+  <img src="https://img.shields.io/badge/build-v1.0.2-9b111e?style=for-the-badge" alt="Build v1.0.2" />
   <img src="https://img.shields.io/badge/platform-Android-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/license-MIT-c0c0c0?style=for-the-badge" alt="MIT License" />
 </p>
@@ -86,6 +86,7 @@ Validation: debug and minified release builds and 18 unit tests pass, including 
 
 - One responsive Today home-screen widget for events, reminders, daily progress, and money
 - AlarmManager wake-ups with WorkManager-powered notification delivery and daily summaries
+- Updated alarm UI for a clearer event alarm experience
 - Event reminders scheduled **at event time** ring and vibrate continuously until you press **Stop alarm**, with a lock-screen alarm screen; earlier reminders remain normal notifications
 - Notifications rescheduled after device reboot
 - Local backup and restore support
@@ -160,7 +161,7 @@ The generated APK is written beneath `app/build/outputs/apk/`. Use Gradle 8.10; 
 
 ## Version
 
-**v1.0.1** brings a money-first, three-column Today widget with recent transactions and expanded nutrition totals; searchable birthdays and University scheduling; unified, editable renewals with correct currency conversion; reliable Home navigation; and multiple vehicles with automatic TRY cash fuel expenses. Android version code: **2**.
+**v1.0.2** updates the alarm UI. Android version code: **3**.
 
 ## License
 
