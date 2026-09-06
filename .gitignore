@@ -29,3 +29,36 @@ hs_err_pid*
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Credentials and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+keystore.properties
+signing.properties
+secrets.properties
+google-services.json
+
+# Personal app data and exports
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.backup
+*.bak
+backups/
+exports/
+private/
+
+# Local agent configuration
+.codex/
+.agents/

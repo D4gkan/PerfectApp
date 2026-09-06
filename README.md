@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/build-v1.0.0-9b111e?style=for-the-badge" alt="Build v1.0.0" />
+  <img src="https://img.shields.io/badge/build-v1.0.1-9b111e?style=for-the-badge" alt="Build v1.0.1" />
   <img src="https://img.shields.io/badge/platform-Android-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Platform Android" />
   <img src="https://img.shields.io/badge/license-MIT-c0c0c0?style=for-the-badge" alt="MIT License" />
 </p>
@@ -30,14 +30,22 @@ and no dependency on an internet connection.
 
 - System-aware light and dark themes with ruby red accents and neutral silver surfaces, animated tab selection, screen fades, and smooth card/progress updates
 - Labeled, horizontally scrollable bottom tabs for every section, including Car, Renewals, Widgets, Search, Alerts, Backup, and Settings
-- A Widgets tab with launcher pinning buttons (or manual instructions for launchers without pinning support)
-- A resizable dashboard widget with upcoming calendar occurrences, USD net worth including gold, and recent transactions
+- A Widgets tab with a Today widget pinning button (or manual instructions for launchers without pinning support)
+- A resizable Today widget with net worth and money at the top, tasks/reminders on the left and birthday countdowns on the right beneath it, followed by daily progress and quick actions
 - Widgets load saved data before rendering, observe live changes, refresh after database changes, and request periodic launcher updates every 30 minutes (Android may defer these)
 - Calendar widgets include recurring events and omit completed items; old repeating series no longer disappear after 500 elapsed occurrences
 
-To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add Today widget**, and confirm the launcher prompt. Expand the widget to reveal the timeline, water/calorie progress, and money summary. Configure summaries, financial privacy, and three shortcuts in Widgets. Tap individual items to open the relevant screen.
+To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add Today widget**, and confirm the launcher prompt. Enabled summaries appear at every size; scroll inside the widget for overflow or expand it to see more. Configure summaries, financial privacy, and three shortcuts in Widgets. Tap individual items to open the relevant screen.
 
-Validation: debug build and 10 unit tests pass, including four calendar regression tests. Emulator checks covered navigation, dashboard widget pinning/rendering, opening the app from the widget, and automatic refresh after saving a recurring calendar event.
+Validation: debug build and 14 unit tests pass, including calendar recurrence and birthday regression tests. Emulator checks covered navigation, dashboard widget pinning/rendering, opening the app from the widget, and automatic refresh after saving a recurring calendar event.
+
+### Today widget and birthdays
+
+- Net worth and the money summary appear first. Tasks/reminders on the left and birthday countdowns on the right sit beneath them.
+- Enabled money and net-worth summaries appear at every widget size, with scrolling for overflow. Net worth can be enabled independently of the money summary.
+- Widget settings update live. Enable Show financial amounts to reveal values.
+- Calendar has a Birthdays view and an add-birthday flow that saves all-day yearly events.
+- Birthday countdown regression tests cover today, tomorrow, year rollover, and February 29.
 
 ### One calm dashboard
 
@@ -79,6 +87,7 @@ Perfect App is deliberately offline-first.
 - No account system or login
 - No backend, cloud sync, analytics, or third-party API requirement
 - Data is stored locally on the Android device using Room
+- Local configuration, signing keys, environment files, database files, backups, exports, build output, and local screenshots under `.tmp/` are excluded from Git
 - Subscription auto-charging is only local bookkeeping; it never contacts a bank,
   card network, payment processor, or external service
 
@@ -129,27 +138,17 @@ extend.
 To build a release APK from a terminal:
 
 ```powershell
-./gradlew.bat assembleRelease
+gradle :app:assembleRelease
 ```
 
-The generated APK is written beneath `app/build/outputs/apk/`.
+The generated APK is written beneath `app/build/outputs/apk/`. Use Gradle 8.10; this repository does not include wrapper scripts. Release signing is not configured: the release APK is unsigned and needs your signing key before installation. `gradle :app:assembleDebug` builds an installable development APK.
 
 ## Version
 
-**v1.0.0** is the first complete release of Perfect App for Android. The app is intentionally
-focused on a strong local foundation: reliable persistence, a connected home dashboard, and
-real workflows across the core areas of personal life.
+**v1.0.1** improves the Today widget with a money-first layout, separate task and birthday columns, compact typography, live visibility settings, and scrollable summaries. Calendar includes a dedicated Birthdays view with yearly events and countdowns. Android version code: **2**.
 
 ## License
 
 Perfect App is released under the [MIT License](LICENSE).
 
 Copyright (c) 2026 Perfect App contributors.
-
-### Today widget and birthdays
-
-- Tasks and reminders appear on the left; birthday countdowns appear on the right.
-- Enabled money and net-worth summaries appear at every widget size, with scrolling for overflow. Net worth can be enabled independently of the money summary.
-- Widget settings update live. Enable Show financial amounts to reveal values.
-- Calendar has a Birthdays view and an add-birthday flow that saves all-day yearly events.
-- Birthday countdown regression tests cover today, tomorrow, year rollover, and February 29.

@@ -99,6 +99,19 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
         }
         // Scroll the content instead of silently dropping enabled sections on small widgets.
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
+            if (options.money || options.netWorth) item {
+                Column(GlanceModifier.fillMaxWidth().background(widgetTrack).cornerRadius(10.dp).padding(9.dp).clickable(openWidgetRoute(context, "wealth"))) {
+                    if (options.netWorth) {
+                        SmallText("NET WORTH", widgetMuted)
+                        Text(if (options.privacy) "Amount hidden" else data.worth,
+                            style = TextStyle(color = widgetText, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                    }
+                    if (options.money) {
+                        SmallText(if (options.privacy) "Today: spending hidden" else "Today: ${data.spending}", widgetText)
+                        SmallText(data.payment, widgetMuted)
+                    }
+                }
+            }
             item {
                 Row(GlanceModifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
@@ -124,19 +137,6 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
                                 SmallText(Birthdays.countdown(item.time.toLocalDate(), LocalDate.now()), widgetAccent)
                             }
                         }
-                    }
-                }
-            }
-            if (options.money || options.netWorth) item {
-                Column(GlanceModifier.fillMaxWidth().background(widgetTrack).cornerRadius(10.dp).padding(9.dp).clickable(openWidgetRoute(context, "wealth"))) {
-                    if (options.netWorth) {
-                        SmallText("NET WORTH", widgetMuted)
-                        Text(if (options.privacy) "Amount hidden" else data.worth,
-                            style = TextStyle(color = widgetText, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
-                    }
-                    if (options.money) {
-                        SmallText(if (options.privacy) "Today: spending hidden" else "Today: ${data.spending}", widgetText)
-                        SmallText(data.payment, widgetMuted)
                     }
                 }
             }
