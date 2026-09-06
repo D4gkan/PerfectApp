@@ -115,7 +115,7 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
                     Column(GlanceModifier.defaultWeight().padding(start = 8.dp).clickable(openWidgetRoute(context, "wealth"))) {
                         Label("RECENT TRANSACTIONS")
                         if (data.recent.isEmpty()) SmallText("No transactions yet", widgetMuted)
-                        data.recent.take(if (tall) 3 else 2).forEach { tx ->
+                        data.recent.take(2).forEach { tx ->
                             val income = tx.type == TransactionType.INCOME
                             SmallText(tx.category, widgetMuted)
                             SmallText(if (options.privacy) "Amount hidden" else (if (income) "+" else "-") + "${tx.currencyCode} %,.2f".format(tx.amount),
