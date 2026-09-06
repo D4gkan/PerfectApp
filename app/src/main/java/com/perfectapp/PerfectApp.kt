@@ -27,6 +27,21 @@ class PerfectApp : Application() {
             .build()
         WorkManager.initialize(this, workConfig)
 
+        val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val changes = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
+        com.perfectapp.data.PerfectDatabase.getInstance(this).invalidationTracker.addObserver(
+            object : androidx.room.InvalidationTracker.Observer("assets", "transactions", "exchange_rates", "gold_settings", "subscriptions", "calendar_events", "reminders") {
+                override fun onInvalidated(tables: Set<String>) { changes.trySend(Unit) }
+            }
+        )
+        widgetScope.launch {
+            for (change in changes) {
+                kotlinx.coroutines.delay(300)
+                com.perfectapp.ui.widgets.WidgetRefresh.request(this@PerfectApp)
+            }
+        }
+        changes.trySend(Unit)
+
         rescheduleDailySummaryWork()
     }
 

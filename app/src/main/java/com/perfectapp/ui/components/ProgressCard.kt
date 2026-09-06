@@ -10,6 +10,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -21,12 +23,13 @@ fun ProgressCard(
     progress: Float,
     modifier: Modifier = Modifier
 ) {
+    val animatedProgress by animateFloatAsState(progress.coerceIn(0f, 1f), label = "Goal progress")
     PremiumCard(modifier = modifier) {
         Column {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
+                progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp),

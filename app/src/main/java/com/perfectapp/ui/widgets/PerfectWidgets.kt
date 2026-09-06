@@ -1,73 +1,104 @@
 package com.perfectapp.ui.widgets
 
 import android.content.Context
-import androidx.glance.GlanceId
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.provideContent
-import androidx.glance.layout.Column
-import androidx.glance.text.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.glance.*
+import androidx.glance.action.actionStartActivity
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.*
+import androidx.glance.layout.*
+import androidx.glance.text.*
+import androidx.glance.unit.ColorProvider
+import com.perfectapp.AppContainer
+import com.perfectapp.MainActivity
 import com.perfectapp.PerfectApp
-import kotlinx.coroutines.flow.first
+import com.perfectapp.domain.calendar.CalendarOccurrences
+import kotlinx.coroutines.flow.*
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+data class WidgetSection(val title: String, val lines: List<String>)
+
 abstract class PerfectWidget : GlanceAppWidget() {
+    override val sizeMode = SizeMode.Exact
+    abstract fun sections(container: AppContainer): Flow<List<WidgetSection>>
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent { Content(context) }
+        val source = sections((context.applicationContext as PerfectApp).container)
+        val initial = source.first()
+        provideContent {
+            val sections by source.collectAsState(initial)
+            val compact = LocalSize.current.height < 320.dp
+            Column(GlanceModifier.fillMaxSize().background(Color(0xFF132A2B))
+                .clickable(actionStartActivity<MainActivity>()).padding(16.dp)) {
+                sections.forEach { section ->
+                    Text(section.title, style = TextStyle(color = ColorProvider(Color(0xFF79DDC6)),
+                        fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                        modifier = GlanceModifier.padding(top = 6.dp, bottom = 4.dp), maxLines = 1)
+                    section.lines.take(if (compact && sections.size > 1) 1 else 3).forEach { line ->
+                        Text(line, style = TextStyle(color = ColorProvider(Color(0xFFF1F8F5)), fontSize = 14.sp),
+                            modifier = GlanceModifier.padding(bottom = 4.dp), maxLines = 2)
+                    }
+                }
+            }
+        }
     }
-    @androidx.compose.runtime.Composable abstract fun Content(context: Context)
 }
 
+private val eventFormat = DateTimeFormatter.ofPattern("EEE, MMM d · HH:mm")
+private fun upcoming(container: AppContainer) = container.calendarRepository.allEvents.map { events ->
+    CalendarOccurrences.upcoming(events, LocalDateTime.now(), 3).map {
+        "${it.event.title} · ${it.occurrenceDateTime.format(eventFormat)}"
+    }
+}
 class NextEventWidget : PerfectWidget() {
-    @androidx.compose.runtime.Composable override fun Content(context: Context) {
-        val event = androidx.compose.runtime.produceState<com.perfectapp.data.entities.CalendarEventEntity?>(null) {
-            value = (context.applicationContext as PerfectApp).container.calendarRepository.nextEvent().first()
-        }.value
-        Column { Text("NEXT EVENT"); Text(event?.title ?: "No upcoming events"); event?.let { Text(it.dateTime.format(DateTimeFormatter.ofPattern("EEE, MMM d · HH:mm"))) } }
+    override fun sections(container: AppContainer) = upcoming(container).map {
+        listOf(WidgetSection("NEXT EVENT", it.take(1).ifEmpty { listOf("No upcoming events") }))
     }
 }
 class NextEventWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = NextEventWidget() }
 
 class TodayScheduleWidget : PerfectWidget() {
-    @androidx.compose.runtime.Composable override fun Content(context: Context) {
-        val events = androidx.compose.runtime.produceState(emptyList<com.perfectapp.data.entities.CalendarEventEntity>()) {
-            value = (context.applicationContext as PerfectApp).container.calendarRepository.allEvents.first().filter { it.dateTime.toLocalDate() == LocalDate.now() }
-        }.value
-        Column { Text("TODAY'S SCHEDULE"); if (events.isEmpty()) Text("Nothing scheduled") else events.take(4).forEach { Text("${it.dateTime.toLocalTime()}  ${it.title}") } }
+    override fun sections(container: AppContainer) = container.calendarRepository.allEvents.map { events ->
+        val today = LocalDate.now()
+        val lines = CalendarOccurrences.expand(events.filter { !it.isCompleted }, today.atStartOfDay(), today.atTime(23, 59, 59)).map {
+            "${it.occurrenceDateTime.toLocalTime()} · ${it.event.title}"
+        }
+        listOf(WidgetSection("TODAY'S SCHEDULE", lines.ifEmpty { listOf("Nothing scheduled today") }))
     }
 }
 class TodayScheduleWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = TodayScheduleWidget() }
 
 class UpcomingRemindersWidget : PerfectWidget() {
-    @androidx.compose.runtime.Composable override fun Content(context: Context) {
-        val reminders = androidx.compose.runtime.produceState(emptyList<String>()) {
-            val app = context.applicationContext as PerfectApp
-            val renewals = app.container.reminderRepository.upcoming.first().map { it.title }
-            val subscriptions = app.container.wealthRepository.activeSubscriptions.first().filter { it.autoRenew }.map { "${it.name} (subscription)" }
-            value = (renewals + subscriptions).take(4)
-        }.value
-        Column { Text("UPCOMING REMINDERS"); if (reminders.isEmpty()) Text("No upcoming reminders") else reminders.forEach { Text(it) } }
+    override fun sections(container: AppContainer) = combine(container.reminderRepository.upcoming,
+        container.wealthRepository.activeSubscriptions) { renewals, subscriptions ->
+        val lines = (renewals.filter { !it.isCompleted }.map { it.dueDate to it.title } +
+            subscriptions.filter { it.autoRenew }.map { it.nextChargeDate to it.name })
+            .sortedBy { it.first }.take(3).map { "${it.second} · ${it.first}" }
+        listOf(WidgetSection("UPCOMING REMINDERS", lines.ifEmpty { listOf("You're all caught up") }))
     }
 }
 class UpcomingRemindersWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = UpcomingRemindersWidget() }
 
-/** Compact launcher widget for the most useful at-a-glance health and hydration data. */
 class HomeDashboardWidget : PerfectWidget() {
-    @androidx.compose.runtime.Composable override fun Content(context: Context) {
-        data class Snapshot(val weight: String, val water: String)
-        val snapshot = androidx.compose.runtime.produceState(Snapshot("No measurement", "0 ml")) {
-            val app = context.applicationContext as PerfectApp
-            val latest = app.container.healthRepository.latestMeasurement.first()
-            val water = app.container.waterRepository.totalForDate(LocalDate.now()).first()
-            val goal = app.container.dietRepository.goal.first()?.waterGoalMl ?: 2500
-            value = Snapshot(latest?.let { "${it.weightKg} kg" } ?: "No measurement", "$water / $goal ml")
-        }.value
-        Column {
-            Text("PERFECT APP")
-            Text("Weight  ${snapshot.weight}")
-            Text("Water  ${snapshot.water}")
+    override fun sections(container: AppContainer): Flow<List<WidgetSection>> {
+        val wealth = container.wealthRepository
+        val worth = combine(wealth.assets, wealth.exchangeRates, wealth.goldSettings) { assets, rates, gold ->
+            val exchange = rates.associate { it.currencyCode to it.rateToBase }
+            wealth.calculateNetWorth(assets, exchange, "USD") + (gold?.let { wealth.goldValueUsd(it, exchange) } ?: 0.0)
+        }
+        return combine(upcoming(container), worth, wealth.transactions) { events, total, transactions ->
+            listOf(
+                WidgetSection("UP NEXT", events.ifEmpty { listOf("No upcoming events") }),
+                WidgetSection("TOTAL NET WORTH", listOf("USD %,.2f".format(total))),
+                WidgetSection("RECENT TRANSACTIONS", transactions.sortedWith(compareByDescending<com.perfectapp.data.entities.TransactionEntity> { it.date }.thenByDescending { it.time })
+                    .take(3).map { "${it.category} · ${if (it.type == com.perfectapp.data.entities.TransactionType.INCOME) "+" else "−"}${it.currencyCode} %,.2f".format(it.amount) }
+                    .ifEmpty { listOf("No transactions yet") })
+            )
         }
     }
 }

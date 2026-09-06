@@ -56,6 +56,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             muscleGainedKg = container.healthRepository.muscleGained(firstMeasurement, latestMeasurement),
             bmi = latestMeasurement?.bmi,
             waterTodayMl = waterTotal,
+            waterGoalMl = dietGoal?.waterGoalMl ?: 2500,
             dietTotals = container.dietRepository.dailyTotals(meals),
             calorieGoal = dietGoal?.calorieGoal,
             proteinGoal = dietGoal?.proteinGoalG,

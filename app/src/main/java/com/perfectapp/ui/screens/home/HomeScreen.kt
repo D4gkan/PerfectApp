@@ -35,6 +35,7 @@ import java.time.temporal.ChronoUnit
 fun HomeScreen(container: AppContainer) {
     val viewModel: HomeViewModel = viewModel(factory = homeViewModelFactory(container))
     val state by viewModel.uiState.collectAsState()
+    val transactions by container.wealthRepository.transactions.collectAsState(initial = emptyList())
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -42,7 +43,61 @@ fun HomeScreen(container: AppContainer) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text(text = "Good day", style = MaterialTheme.typography.headlineLarge)
+            Text(text = "Your day, in focus", style = MaterialTheme.typography.headlineLarge)
+            Text(java.time.LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, MMMM d")), color = MaterialTheme.colorScheme.primary)
+            Text("A little clarity for everything that matters.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        item {
+            SectionHeader(title = "Wealth")
+        }
+        item {
+            PremiumCard(modifier = Modifier.fillMaxWidth(), containerColor = MaterialTheme.colorScheme.primaryContainer) {
+                Column {
+                    Text(
+                        text = "Net Worth",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    CurrencyAmount(amount = state.netWorth, currencyCode = state.baseCurrency)
+                    state.netWorthChangeThisMonth?.let { change ->
+                        Text(
+                            text = (if (change >= 0) "+" else "") + "%.2f this month".format(change),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (change >= 0) PositiveGreen else NegativeRed
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionHeader(title = "Calendar")
+        }
+        item {
+            val event = state.nextEvent
+            if (event != null) {
+                val daysLeft = ChronoUnit.DAYS.between(java.time.LocalDate.now(), event.dateTime.toLocalDate())
+                CountdownCard(
+                    title = event.title,
+                    subtitle = event.dateTime.format(DateTimeFormatter.ofPattern("EEE, MMM d '-' h:mm a")),
+                    daysLabel = if (daysLeft == 0L) "Today" else "$daysLeft days"
+                )
+            } else {
+                PremiumCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("No upcoming events", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        item {
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text("Recent transactions", style = MaterialTheme.typography.titleMedium)
+                if (transactions.isEmpty()) Text("Your latest transactions will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                transactions.take(3).forEach { transaction ->
+                    MetricRow(transaction.category, "${if (transaction.type == com.perfectapp.data.entities.TransactionType.INCOME) "+" else "−"}${transaction.currencyCode} %,.2f".format(transaction.amount))
+                }
+            }
         }
 
         item {
@@ -73,6 +128,9 @@ fun HomeScreen(container: AppContainer) {
         item {
             PremiumCard(modifier = Modifier.fillMaxWidth()) {
                 Column {
+                    if (state.fatMassKg == null && state.weightChangeKg == null && state.fatMassChangeKg == null && state.muscleGainedKg == null) {
+                        Text("Add a measurement in Health to start seeing your progress.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     state.fatMassKg?.let { MetricRow("Fat Mass", "%.1f kg".format(it)) }
                     state.weightChangeKg?.let { MetricRow("Total Weight Change", "%+.1f kg".format(it)) }
                     state.fatMassChangeKg?.let { MetricRow("Total Fat Change", "%+.1f kg".format(it)) }
@@ -114,48 +172,6 @@ fun HomeScreen(container: AppContainer) {
                     state.dietTotals.calories / (state.calorieGoal ?: 1).toFloat()
                 else 0f
             )
-        }
-
-        item {
-            SectionHeader(title = "Wealth")
-        }
-        item {
-            PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    Text(
-                        text = "Net Worth",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    CurrencyAmount(amount = state.netWorth, currencyCode = state.baseCurrency)
-                    state.netWorthChangeThisMonth?.let { change ->
-                        Text(
-                            text = (if (change >= 0) "+" else "") + "%.2f this month".format(change),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (change >= 0) PositiveGreen else NegativeRed
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            SectionHeader(title = "Calendar")
-        }
-        item {
-            val event = state.nextEvent
-            if (event != null) {
-                val daysLeft = ChronoUnit.DAYS.between(java.time.LocalDate.now(), event.dateTime.toLocalDate())
-                CountdownCard(
-                    title = event.title,
-                    subtitle = event.dateTime.format(DateTimeFormatter.ofPattern("EEE, MMM d '-' h:mm a")),
-                    daysLabel = if (daysLeft == 0L) "Today" else "$daysLeft days"
-                )
-            } else {
-                PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("No upcoming events", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
         }
 
         item {

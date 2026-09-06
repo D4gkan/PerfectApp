@@ -26,6 +26,19 @@ and no dependency on an internet connection.
 
 ## Highlights
 
+### Refreshed navigation and widgets
+
+- System-aware light and dark themes with teal accents, animated tab selection, screen fades, and smooth card/progress updates
+- Labeled, horizontally scrollable bottom tabs for every section, including Car, Renewals, Widgets, Search, Alerts, Backup, and Settings
+- A Widgets tab with launcher pinning buttons (or manual instructions for launchers without pinning support)
+- A resizable dashboard widget with upcoming calendar occurrences, USD net worth including gold, and recent transactions
+- Widgets load saved data before rendering, observe live changes, refresh after database changes, and request periodic launcher updates every 30 minutes (Android may defer these)
+- Calendar widgets include recurring events and omit completed items; old repeating series no longer disappear after 500 elapsed occurrences
+
+To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add widget** under Home dashboard, and confirm the launcher prompt. Expand the widget to show more events and transactions. Tap the widget to open the app.
+
+Validation: debug build and 10 unit tests pass, including four calendar regression tests. Emulator checks covered navigation, dashboard widget pinning/rendering, opening the app from the widget, and automatic refresh after saving a recurring calendar event.
+
 ### One calm dashboard
 
 - Live summaries for health, diet, water, wealth, calendar events, car maintenance, and reminders

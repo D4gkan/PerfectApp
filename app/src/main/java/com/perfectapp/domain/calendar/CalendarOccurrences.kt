@@ -12,6 +12,18 @@ data class EventOccurrence(
 )
 
 object CalendarOccurrences {
+    fun upcoming(events: List<CalendarEventEntity>, now: LocalDateTime, limit: Int = 3): List<EventOccurrence> =
+        events.filter { !it.isCompleted }.flatMap { event ->
+            var next = event.dateTime
+            val unit = event.recurrenceUnit
+            if (unit != null) while (next.isBefore(now)) next = step(next, unit)
+            if (next.isBefore(now)) emptyList() else buildList {
+                repeat(if (unit == null) 1 else limit) {
+                    add(EventOccurrence(event, next))
+                    if (unit != null) next = step(next, unit)
+                }
+            }
+        }.sortedBy { it.occurrenceDateTime }.take(limit)
 
     /**
      * Expands a list of events (some possibly repeating) into concrete occurrences
@@ -37,6 +49,7 @@ object CalendarOccurrences {
             }
 
             var current = event.dateTime
+            while (current.isBefore(rangeStart)) current = step(current, unit)
             var count = 0
             while (current.isBefore(rangeEnd.plusSeconds(1)) && count < maxOccurrencesPerEvent) {
                 if (!current.isBefore(rangeStart)) {

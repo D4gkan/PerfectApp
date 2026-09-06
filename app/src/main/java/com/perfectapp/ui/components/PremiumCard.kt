@@ -1,6 +1,7 @@
 package com.perfectapp.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -15,12 +16,13 @@ import androidx.compose.ui.unit.dp
 fun PremiumCard(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
+    containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     content: @Composable () -> Unit
 ) {
     OutlinedCard(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(),
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.outlinedCardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Column(modifier = Modifier.padding(contentPadding)) {

@@ -7,9 +7,10 @@ import androidx.glance.appwidget.updateAll
 object WidgetRefresh {
     suspend fun request(context: Context) {
         val appContext = context.applicationContext
-        NextEventWidget().updateAll(appContext)
-        TodayScheduleWidget().updateAll(appContext)
-        UpcomingRemindersWidget().updateAll(appContext)
-        HomeDashboardWidget().updateAll(appContext)
+        listOf(NextEventWidget(), TodayScheduleWidget(), UpcomingRemindersWidget(), HomeDashboardWidget()).forEach { widget ->
+            try { widget.updateAll(appContext) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { android.util.Log.e("WidgetRefresh", "Widget refresh failed", error) }
+        }
     }
 }

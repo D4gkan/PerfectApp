@@ -1,6 +1,9 @@
 package com.perfectapp.ui.screens.onboarding
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,7 +27,7 @@ import kotlinx.coroutines.launch
     val currency = remember { mutableStateOf("USD") }; val calories = remember { mutableStateOf("2000") }; val protein = remember { mutableStateOf("150") }; val carbs = remember { mutableStateOf("200") }; val fat = remember { mutableStateOf("65") }; val water = remember { mutableStateOf("2500") }
     val carName = remember { mutableStateOf("") }; val carOdometer = remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Welcome to Perfect App")
         Text("Set a few local preferences to personalise your dashboard. You can change all of these later.")
         OutlinedTextField(currency.value, { currency.value = it.uppercase().take(3) }, label = { Text("Display currency") }, modifier = Modifier.fillMaxWidth())
@@ -34,7 +37,7 @@ import kotlinx.coroutines.launch
         OutlinedTextField(fat.value, { fat.value = it }, label = { Text("Daily fat (g)") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(water.value, { water.value = it }, label = { Text("Daily water (ml)") }, modifier = Modifier.fillMaxWidth())
         Text("Vehicle (optional)")
-        Text("Add it now, or set it up later from More → Car.")
+        Text("Add it now, or set it up later from the Car tab.")
         OutlinedTextField(carName.value, { carName.value = it }, label = { Text("Vehicle name") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(carOdometer.value, { carOdometer.value = it }, label = { Text("Current odometer (km)") }, modifier = Modifier.fillMaxWidth())
         Button(onClick = { scope.launch {

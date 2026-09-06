@@ -1,6 +1,28 @@
 package com.perfectapp.ui.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.unit.dp
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Icon
@@ -55,10 +77,17 @@ fun PerfectAppRoot(container: AppContainer) {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route
 
-            NavigationBar {
+            Surface(tonalElevation = 3.dp) {
+              Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
+                Text("Explore · swipe for more tabs", modifier = Modifier.padding(start = 20.dp, top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(8.dp)) {
                 bottomNavItems.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentRoute == destination.route,
+                    val selected = currentRoute?.substringBefore('/') == destination.route
+                    val tint by animateColorAsState(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, label = "Tab selection")
+                    Column(
+                        modifier = Modifier.width(84.dp).heightIn(min = 64.dp).clip(RoundedCornerShape(20.dp)).background(tint).selectable(
+                        selected = selected,
+                        role = Role.Tab,
                         onClick = {
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.findStartDestination().id) {
@@ -67,20 +96,28 @@ fun PerfectAppRoot(container: AppContainer) {
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) }
-                    )
+                        }),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(destination.icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(destination.label, style = MaterialTheme.typography.labelSmall, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
+              }
+              }
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Destination.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = { fadeIn(tween(220)) },
+            exitTransition = { fadeOut(tween(140)) }
         ) {
             composable(Destination.Home.route) { HomeScreen(container = container) }
+            composable("widgets") { com.perfectapp.ui.widgets.WidgetsScreen() }
             composable(Destination.Health.route) {
                 HealthScreen(
                     repository = container.healthRepository,

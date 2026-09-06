@@ -2,10 +2,10 @@ package com.perfectapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val BackgroundDark = Color(0xFF0B0B0D)
-val SurfaceDark = Color(0xFF17171B)
-val SurfaceVariantDark = Color(0xFF201F24)
-val BorderDark = Color(0xFF2A2A30)
+val BackgroundDark = Color(0xFF0D1719)
+val SurfaceDark = Color(0xFF172427)
+val SurfaceVariantDark = Color(0xFF223236)
+val BorderDark = Color(0xFF35474A)
 
 val TextPrimary = Color(0xFFF2F2F4)
 val TextSecondary = Color(0xFF9A9AA2)
