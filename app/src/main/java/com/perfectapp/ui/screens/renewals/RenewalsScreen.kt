@@ -1,158 +1,97 @@
-package com.perfectapp.ui.screens.renewals
+﻿package com.perfectapp.ui.screens.renewals
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.perfectapp.data.entities.ReminderEntity
+import com.perfectapp.data.entities.*
 import com.perfectapp.data.repository.ReminderRepository
-import com.perfectapp.ui.common.viewModelFactory
-import com.perfectapp.ui.components.CurrencyAmount
-import com.perfectapp.ui.components.EmptyState
+import com.perfectapp.data.repository.WealthRepository
+import com.perfectapp.domain.wealth.RenewalCosts
 import com.perfectapp.ui.components.PremiumCard
 import com.perfectapp.ui.components.formatCurrency
-import com.perfectapp.ui.theme.NegativeRed
-import com.perfectapp.ui.theme.PositiveGreen
-import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
-fun RenewalsScreen(
-    repository: ReminderRepository,
-    onAddRenewal: () -> Unit
-) {
-    val viewModel: RenewalsViewModel = viewModel(factory = viewModelFactory { RenewalsViewModel(repository) })
-    val state by viewModel.uiState.collectAsState()
-    var itemToDelete by remember { mutableStateOf<ReminderEntity?>(null) }
-
-    itemToDelete?.let { item ->
-        AlertDialog(onDismissRequest = { itemToDelete = null }, title = { Text("Delete renewal?") }, text = { Text("${item.title} will no longer appear in your renewal schedule.") }, confirmButton = { Button(onClick = { viewModel.delete(item); itemToDelete = null }) { Text("Delete") } }, dismissButton = { androidx.compose.material3.TextButton(onClick = { itemToDelete = null }) { Text("Cancel") } })
+fun RenewalsScreen(repository: ReminderRepository, wealthRepository: WealthRepository, onAddRenewal: () -> Unit, onAddAutomatic: () -> Unit) {
+    val reminders by repository.all.collectAsState(initial = emptyList())
+    val subscriptions by wealthRepository.activeSubscriptions.collectAsState(initial = emptyList())
+    val ratesList by wealthRepository.exchangeRates.collectAsState(initial = emptyList())
+    val rates = ratesList.associate { it.currencyCode to it.rateToBase }
+    val monthly = RenewalCosts.monthly(reminders, subscriptions, rates)
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf<ReminderEntity?>(null) }
+    var editingSubscription by remember { mutableStateOf<SubscriptionEntity?>(null) }
+    var deleting by remember { mutableStateOf<ReminderEntity?>(null) }
+    var deletingSubscription by remember { mutableStateOf<SubscriptionEntity?>(null) }
+    editing?.let { item ->
+        androidx.activity.compose.BackHandler { editing = null }
+        AddRenewalScreen(repository, onSaved = { editing = null }, existing = item)
+        return
     }
-
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddRenewal) {
-                Icon(Icons.Filled.Add, contentDescription = "Add renewal")
+    editingSubscription?.let { item ->
+        androidx.activity.compose.BackHandler { editingSubscription = null }
+        com.perfectapp.ui.screens.wealth.AddSubscriptionScreen(wealthRepository, onSaved = { editingSubscription = null }, existing = item)
+        return
+    }
+    deleting?.let { item ->
+        AlertDialog(onDismissRequest = { deleting = null }, title = { Text("Delete renewal?") }, text = { Text(item.title) },
+            confirmButton = { TextButton(onClick = { scope.launch { repository.delete(item); deleting = null } }) { Text("Delete") } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } })
+    }
+    deletingSubscription?.let { item ->
+        AlertDialog(onDismissRequest = { deletingSubscription = null }, title = { Text("Delete automatic renewal?") }, text = { Text("Stops future charges for ${item.name}. Existing transactions are kept.") },
+            confirmButton = { TextButton(onClick = { scope.launch { wealthRepository.deleteSubscription(item); deletingSubscription = null } }) { Text("Delete") } }, dismissButton = { TextButton(onClick = { deletingSubscription = null }) { Text("Cancel") } })
+    }
+    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            Text("Renewals", style = MaterialTheme.typography.headlineMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onAddRenewal) { Text("Add renewal") }
+                OutlinedButton(onClick = onAddAutomatic) { Text("Automatic") }
             }
         }
-    ) { innerPadding ->
-        if (state.items.isEmpty()) {
-            EmptyState(
-                title = "No renewals tracked yet",
-                message = "Add subscriptions, insurance, or memberships to keep due dates and costs in one place.",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                actionLabel = "Add Renewal",
-                onActionClick = onAddRenewal
-            )
-            return@Scaffold
+        item {
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text("Estimated monthly cost", style = MaterialTheme.typography.labelMedium)
+                if (monthly.missingCurrencies.isEmpty()) Text(formatCurrency(monthly.usd, "USD"), style = MaterialTheme.typography.headlineSmall)
+                else {
+                    Text("USD total unavailable", style = MaterialTheme.typography.titleMedium)
+                    Text("Set ${monthly.missingCurrencies.joinToString()} exchange rates in Wealth to convert all renewals.", style = MaterialTheme.typography.bodySmall)
+                }
+                Text("Active recurring renewals and automatic subscriptions", style = MaterialTheme.typography.bodySmall)
+            }
         }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                    Column {
-                        Text(
-                            text = "Estimated Monthly Cost",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        CurrencyAmount(amount = state.estimatedMonthlyCost)
-                        Text(
-                            text = "Across all active recurring renewals",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+        if (reminders.isEmpty() && subscriptions.isEmpty()) item { Text("Add subscriptions, insurance or memberships here.") }
+        items(reminders, key = { "renewal-${it.id}" }) { item ->
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text(item.title, style = MaterialTheme.typography.titleMedium)
+                item.amount?.let { RenewalAmount(it, item.currencyCode ?: "USD", rates) }
+                Text(if (item.isCompleted) "Completed" else "Due ${item.dueDate}" + if (item.isRecurring) " - every ${item.recurrenceMonths} month(s)" else "", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    TextButton(onClick = { editing = item }) { Text("Edit") }
+                    if (!item.isCompleted) TextButton(onClick = { scope.launch { repository.markPaid(item) } }) { Text("Mark paid") }
+                    TextButton(onClick = { deleting = item }) { Text("Delete") }
                 }
             }
-
-            items(state.items) { item ->
-                RenewalRow(
-                    item = item,
-                    daysLeft = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(), item.dueDate),
-                    onMarkPaid = { viewModel.markPaid(item) },
-                    onDelete = { itemToDelete = item }
-                )
+        }
+        items(subscriptions, key = { "subscription-${it.id}" }) { item ->
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text(item.name, style = MaterialTheme.typography.titleMedium)
+                RenewalAmount(item.amount, item.currencyCode, rates)
+                Text(if (item.autoRenew) "Automatic - due ${item.nextChargeDate}" else "Automatic - paused", style = MaterialTheme.typography.bodySmall)
+                Row {
+                    TextButton(onClick = { editingSubscription = item }) { Text("Edit") }
+                    TextButton(onClick = { scope.launch { wealthRepository.updateSubscription(item.copy(autoRenew = !item.autoRenew)) } }) { Text(if (item.autoRenew) "Pause" else "Resume") }
+                    TextButton(onClick = { deletingSubscription = item }) { Text("Delete") }
+                }
             }
         }
     }
 }
-
-@Composable
-private fun RenewalRow(
-    item: ReminderEntity,
-    daysLeft: Long,
-    onMarkPaid: () -> Unit,
-    onDelete: () -> Unit
-) {
-    PremiumCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(text = item.title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = buildString {
-                        append(item.category?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Reminder")
-                        item.amount?.let { append(" · " + formatCurrency(it, item.currencyCode ?: "USD")) }
-                        if (item.isRecurring) append(" · recurring")
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Due " + item.dueDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy")) +
-                        if (daysLeft in 0..7) "  (${daysLeft}d)" else "",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (daysLeft < 0) NegativeRed
-                        else if (daysLeft <= 7) PositiveGreen
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Row {
-                if (!item.isCompleted) {
-                    IconButton(onClick = onMarkPaid) {
-                        Icon(Icons.Filled.Check, contentDescription = "Mark paid")
-                    }
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Close, contentDescription = "Delete")
-                }
-            }
-        }
-    }
+@Composable private fun RenewalAmount(amount: Double, currency: String, rates: Map<String, Double>) {
+    Text(formatCurrency(amount, currency), style = MaterialTheme.typography.titleSmall)
+    if (currency != "USD") Text(RenewalCosts.usd(amount, currency, rates)?.let { "Equivalent: ${formatCurrency(it, "USD")}" } ?: "USD conversion needs a $currency rate in Wealth", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 }

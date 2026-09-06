@@ -1,5 +1,8 @@
 package com.perfectapp.ui.screens.car
 
+import androidx.compose.foundation.layout.Box
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,13 +47,17 @@ fun CarScreen(
     wealthRepository: WealthRepository,
     reminderRepository: ReminderRepository,
     onAddOrEditCar: () -> Unit,
+    onEditCar: (Long) -> Unit,
     onAddMaintenance: (carId: Long) -> Unit,
     onAddCarRenewal: (carId: Long) -> Unit
 ) {
     val viewModel: CarViewModel = viewModel(factory = viewModelFactory { CarViewModel(repository) })
     val state by viewModel.uiState.collectAsState()
     val carRenewals by reminderRepository.all.collectAsState(initial = emptyList())
-    val assets by wealthRepository.assets.collectAsState(initial = emptyList())
+    val cars by repository.cars.collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
+    var carMenu by remember { mutableStateOf(false) }
+    var removeCar by remember { mutableStateOf(false) }
     var showOdometerDialog by remember { mutableStateOf(false) }
     var showFuelDialog by remember { mutableStateOf(false) }
     var maintenanceToDelete by remember { mutableStateOf<MaintenanceEntity?>(null) }
@@ -77,7 +84,11 @@ fun CarScreen(
             }
         )
     }
-    if (showFuelDialog) FuelDialog(car.id, car.currentOdometerKm, assets, onDismiss = { showFuelDialog = false }) { entry, assetId -> viewModel.addFuel(entry, assetId); showFuelDialog = false }
+    if (showFuelDialog) FuelDialog(car.id, car.currentOdometerKm, onDismiss = { showFuelDialog = false }) { entry -> viewModel.addFuel(entry); showFuelDialog = false }
+    if (removeCar) AlertDialog(onDismissRequest = { removeCar = false }, title = { Text("Remove ${car.name}?") },
+        text = { Text("Removes this vehicle, fuel log, mileage and maintenance. Wealth transactions and renewal reminders are kept.") },
+        confirmButton = { Button(onClick = { scope.launch { repository.deleteCar(car); removeCar = false } }) { Text("Remove") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { removeCar = false }) { Text("Cancel") } })
     maintenanceToDelete?.let { item ->
         AlertDialog(onDismissRequest = { maintenanceToDelete = null }, title = { Text("Delete maintenance item?") }, text = { Text("${item.title} will be removed from this vehicle's schedule.") }, confirmButton = { Button(onClick = { viewModel.deleteMaintenance(item); maintenanceToDelete = null }) { Text("Delete") } }, dismissButton = { androidx.compose.material3.TextButton(onClick = { maintenanceToDelete = null }) { Text("Cancel") } })
     }
@@ -88,7 +99,15 @@ fun CarScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            SectionHeader(title = car.name, actionLabel = "Edit", onActionClick = onAddOrEditCar)
+            Box {
+                androidx.compose.material3.OutlinedButton(onClick = { carMenu = true }) { Text("${car.name}  -  Vehicles") }
+                androidx.compose.material3.DropdownMenu(carMenu, onDismissRequest = { carMenu = false }) {
+                    cars.forEach { vehicle -> androidx.compose.material3.DropdownMenuItem(text = { Text(vehicle.name) }, onClick = { repository.selectCar(vehicle.id); carMenu = false }) }
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Add vehicle") }, onClick = { carMenu = false; onAddOrEditCar() })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Edit current vehicle") }, onClick = { carMenu = false; onEditCar(car.id) })
+                    androidx.compose.material3.DropdownMenuItem(text = { Text("Remove current vehicle") }, onClick = { carMenu = false; removeCar = true })
+                }
+            }
         }
         item { SectionHeader(title = "Fuel spending", actionLabel = "Add fuel", onActionClick = { showFuelDialog = true }) }
         item {
@@ -164,24 +183,37 @@ fun CarScreen(
 }
 
 @Composable
-private fun FuelDialog(carId: Long, odometer: Long, assets: List<AssetEntity>, onDismiss: () -> Unit, onSave: (com.perfectapp.data.entities.FuelEntryEntity, Long?) -> Unit) {
-    var liters by remember { mutableStateOf("") }; var cost by remember { mutableStateOf("") }; var date by remember { mutableStateOf(java.time.LocalDate.now().toString()) }; var km by remember { mutableStateOf(odometer.toString()) }; var currency by remember { mutableStateOf("USD") }; var fundingAssetId by remember { mutableStateOf<Long?>(null) }
-    androidx.compose.material3.AlertDialog(onDismissRequest = onDismiss, title = { Text("Log fuel") }, text = { Column {
+private fun FuelDialog(carId: Long, odometer: Long, onDismiss: () -> Unit, onSave: suspend (com.perfectapp.data.entities.FuelEntryEntity) -> Unit) {
+    var liters by remember { mutableStateOf("") }
+    var cost by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf(java.time.LocalDate.now()) }
+    var km by remember { mutableStateOf(odometer.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    AlertDialog(onDismissRequest = { if (!saving) onDismiss() }, title = { Text("Log fuel") }, text = { Column {
+        Text("Paid from: TRY CASH", color = MaterialTheme.colorScheme.primary)
+        Text("Saving also records an expense in Wealth.", style = MaterialTheme.typography.bodySmall)
         androidx.compose.material3.OutlinedTextField(liters, { liters = it }, label = { Text("Liters") })
-        androidx.compose.material3.OutlinedTextField(cost, { cost = it }, label = { Text("Total cost") })
-        androidx.compose.material3.OutlinedTextField(currency, { currency = it.uppercase().take(3) }, label = { Text("Currency") })
-        if (assets.filter { it.currencyCode.equals(currency, true) }.isNotEmpty()) {
-            Text("Paid from (optional)", style = MaterialTheme.typography.labelMedium)
-            assets.filter { it.currencyCode.equals(currency, true) }.forEach { asset ->
-                androidx.compose.material3.FilterChip(selected = fundingAssetId == asset.id, onClick = { fundingAssetId = if (fundingAssetId == asset.id) null else asset.id }, label = { Text(asset.name) })
+        androidx.compose.material3.OutlinedTextField(cost, { cost = it }, label = { Text("Total paid (TRY)") })
+        com.perfectapp.ui.components.DatePickerField("Date", date, { date = it })
+        androidx.compose.material3.OutlinedTextField(km, { km = it }, label = { Text("Odometer km") })
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    } }, confirmButton = { Button(enabled = !saving, onClick = {
+        val parsedLiters = liters.replace(',', '.').toDoubleOrNull()
+        val parsedCost = cost.replace(',', '.').toDoubleOrNull()
+        val parsedKm = km.toLongOrNull()
+        if (parsedLiters == null || !parsedLiters.isFinite() || parsedLiters <= 0 || parsedCost == null || !parsedCost.isFinite() || parsedCost <= 0 || parsedKm == null || parsedKm < 0) {
+            error = "Enter positive liters and cost, and a valid odometer."
+        } else {
+            saving = true
+            scope.launch {
+                try { onSave(com.perfectapp.data.entities.FuelEntryEntity(carId = carId, date = date, odometerKm = parsedKm, liters = parsedLiters, totalCost = parsedCost, currencyCode = "TRY")) }
+                catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; error = e.message ?: "Could not save fuel" }
+                finally { saving = false }
             }
         }
-        androidx.compose.material3.OutlinedTextField(date, { date = it }, label = { Text("Date (yyyy-MM-dd)") })
-        androidx.compose.material3.OutlinedTextField(km, { km = it }, label = { Text("Odometer km") })
-    } }, confirmButton = { androidx.compose.material3.Button(onClick = {
-        val parsedDate = runCatching { java.time.LocalDate.parse(date) }.getOrNull(); val parsedLiters = liters.toDoubleOrNull(); val parsedCost = cost.toDoubleOrNull()
-        if (parsedDate != null && parsedLiters != null && parsedLiters > 0 && parsedCost != null && parsedCost >= 0) onSave(com.perfectapp.data.entities.FuelEntryEntity(carId = carId, date = parsedDate, odometerKm = km.toLongOrNull(), liters = parsedLiters, totalCost = parsedCost, currencyCode = currency.ifBlank { "USD" }), fundingAssetId)
-    }) { Text("Save") } }, dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } })
+    }) { Text(if (saving) "Saving..." else "Save") } }, dismissButton = { androidx.compose.material3.TextButton(enabled = !saving, onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable

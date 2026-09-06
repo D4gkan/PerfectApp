@@ -2,6 +2,8 @@
     <color name="widgetbackground">#1E1E21</color>
     <color name="widgettext">#F5F5F7</color>
     <color name="widgetmuted">#BDBDC6</color>
-    <color name="widgetaccent">#FFB3B8</color>
+    <color name="widgetaccent">#F04B50</color>
     <color name="widgettrack">#393940</color>
+    <color name="widgetincome">#68D69B</color>
+    <color name="widgetexpense">#F04B50</color>
 </resources>

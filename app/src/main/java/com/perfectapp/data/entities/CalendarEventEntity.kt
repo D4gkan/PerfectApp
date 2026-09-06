@@ -5,7 +5,12 @@ import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
 enum class RecurrenceUnit { DAILY, WEEKLY, MONTHLY, YEARLY }
-enum class CalendarItemType { EVENT, TASK, UNIVERSITY_LESSON, BIRTHDAY }
+enum class CalendarItemType { EVENT, TASK, UNIVERSITY_LESSON, BIRTHDAY;
+    val displayName: String get() = when (this) {
+        UNIVERSITY_LESSON -> "University"
+        else -> name.lowercase().replaceFirstChar { it.uppercase() }
+    }
+}
 
 @Entity(tableName = "calendar_events")
 data class CalendarEventEntity(

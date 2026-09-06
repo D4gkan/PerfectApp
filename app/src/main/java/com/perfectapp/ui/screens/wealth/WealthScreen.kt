@@ -56,8 +56,7 @@ fun WealthScreen(
     repository: WealthRepository,
     settingsRepository: SettingsRepository,
     onAddAsset: () -> Unit,
-    onAddTransaction: () -> Unit,
-    onAddSubscription: () -> Unit
+    onAddTransaction: () -> Unit
 ) {
     val viewModel: WealthViewModel = viewModel(factory = viewModelFactory { WealthViewModel(repository) })
     val state by viewModel.uiState.collectAsState()
@@ -65,7 +64,6 @@ fun WealthScreen(
     var transactionQuery by remember { mutableStateOf("") }
     var transactionTypeFilter by remember { mutableStateOf<TransactionType?>(null) }
     var assetToDelete by remember { mutableStateOf<AssetEntity?>(null) }
-    var subscriptionToDelete by remember { mutableStateOf<SubscriptionEntity?>(null) }
     var transactionToReverse by remember { mutableStateOf<TransactionEntity?>(null) }
     val displayRate = if (settings.displayCurrency == "USD") 1.0 else state.exchangeRates.firstOrNull { it.currencyCode == settings.displayCurrency }?.rateToBase
     val displayedNetWorth = displayRate?.let { state.netWorth / it } ?: state.netWorth
@@ -75,12 +73,6 @@ fun WealthScreen(
             text = { Text("This removes ${asset.name}. Transactions are kept for history, but future reversals cannot restore this asset.") },
             confirmButton = { Button(onClick = { viewModel.deleteAsset(asset); assetToDelete = null }) { Text("Delete") } },
             dismissButton = { androidx.compose.material3.TextButton(onClick = { assetToDelete = null }) { Text("Cancel") } })
-    }
-    subscriptionToDelete?.let { subscription ->
-        AlertDialog(onDismissRequest = { subscriptionToDelete = null }, title = { Text("Delete subscription?") },
-            text = { Text("This stops future automatic charges. Existing transactions remain in your history.") },
-            confirmButton = { Button(onClick = { viewModel.deleteSubscription(subscription); subscriptionToDelete = null }) { Text("Delete") } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { subscriptionToDelete = null }) { Text("Cancel") } })
     }
     transactionToReverse?.let { transaction ->
         AlertDialog(onDismissRequest = { transactionToReverse = null }, title = { Text("Reverse transaction?") },
@@ -143,55 +135,6 @@ fun WealthScreen(
         item { GoldCalculator(state.goldSettings, state.exchangeRates.firstOrNull { it.currencyCode == "TRY" }?.rateToBase ?: 0.0, viewModel::updateGoldSettings) }
 
         item {
-            SectionHeader(title = "Subscriptions", actionLabel = "Add", onActionClick = onAddSubscription)
-        }
-        if (state.subscriptions.isNotEmpty()) {
-            item {
-                PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                    Column {
-                        Text(
-                            text = "Estimated Monthly Cost",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        CurrencyAmount(amount = state.subscriptionMonthlyCost, currencyCode = state.baseCurrency)
-                    }
-                }
-            }
-        } else {
-            item {
-                PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("No subscriptions tracked yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-        items(state.subscriptions) { subscription ->
-            SubscriptionRow(
-                subscription = subscription,
-                daysUntilCharge = repository.daysUntilCharge(subscription),
-                onPause = { viewModel.pauseSubscription(subscription) },
-                onResume = { viewModel.resumeSubscription(subscription) },
-                onDelete = { subscriptionToDelete = subscription }
-            )
-        }
-
-        if (false) {
-            item {
-                PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        "All assets in ${state.baseCurrency} — no conversion needed yet",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        items(emptyList<com.perfectapp.data.entities.ExchangeRateEntity>()) { rate ->
-            PremiumCard(modifier = Modifier.fillMaxWidth()) {
-                MetricRow(label = rate.currencyCode, value = "1 = %.4f %s".format(rate.rateToBase, state.baseCurrency))
-            }
-        }
-
-        item {
             SectionHeader(title = "Transactions", actionLabel = "Add", onActionClick = onAddTransaction)
         }
         item {
@@ -228,9 +171,12 @@ fun WealthScreen(
             item {
                 PremiumCard(modifier = Modifier.fillMaxWidth()) {
                     Column {
-                        MetricRow("This month's spending", formatCurrency(monthlyExpenses.sumOf { it.amount }, state.baseCurrency))
+                        val rates = state.exchangeRates.associate { it.currencyCode to it.rateToBase }
+                        val converted = monthlyExpenses.map { com.perfectapp.domain.wealth.RenewalCosts.usd(it.amount, it.currencyCode, rates) }
+                        if (converted.all { it != null }) MetricRow("This month's spending", formatCurrency(converted.filterNotNull().sum(), "USD"))
+                        else Text("Set missing exchange rates to see a USD total.")
                         monthlyExpenses.groupBy { it.category }.toList().sortedByDescending { (_, items) -> items.sumOf { it.amount } }.take(5).forEach { (category, items) ->
-                            MetricRow(category, formatCurrency(items.sumOf { it.amount }, state.baseCurrency))
+                            items.groupBy { it.currencyCode }.forEach { (currency, entries) -> MetricRow(category, formatCurrency(entries.sumOf { it.amount }, currency)) }
                         }
                     }
                 }

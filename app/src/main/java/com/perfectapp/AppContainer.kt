@@ -12,7 +12,7 @@ class AppContainer(context: Context) {
     val dietRepository = DietRepository(database)
     val wealthRepository = WealthRepository(database, context)
     val calendarRepository = CalendarRepository(database, context)
-    val carRepository = CarRepository(database)
+    val carRepository = CarRepository(database, context)
     val reminderRepository = ReminderRepository(database, context)
     val settingsRepository = SettingsRepository(context)
     val backupRepository = BackupRepository(context, database)

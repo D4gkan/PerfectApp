@@ -72,10 +72,10 @@ fun AddEventScreen(
         ) {
             item {
                 Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(value = itemType.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }, onValueChange = {}, readOnly = true, enabled = false, label = { Text("Item type") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = itemType.displayName, onValueChange = {}, readOnly = true, enabled = false, label = { Text("Item type") }, modifier = Modifier.fillMaxWidth())
                     Box(modifier = Modifier.matchParentSize().clickable { typeExpanded = true })
                     DropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }) {
-                        CalendarItemType.values().forEach { option -> DropdownMenuItem(text = { Text(option.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }) }, onClick = { itemType = option; typeExpanded = false }) }
+                        CalendarItemType.values().forEach { option -> DropdownMenuItem(text = { Text(option.displayName) }, onClick = { itemType = option; typeExpanded = false }) }
                     }
                 }
             }

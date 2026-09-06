@@ -60,7 +60,7 @@ fun WidgetsScreen() {
                 Text("Today", style = MaterialTheme.typography.headlineSmall)
                 Text("Your next priority, at a glance", color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(12.dp))
-                Text("Tasks on the left, birthdays on the right. Enabled summaries appear at every size; scroll inside the widget for more.", style = MaterialTheme.typography.bodyMedium)
+                Text("Net worth and transactions above tasks, University and birthdays. Enabled summaries appear at every size; scroll inside the widget for more.", style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = {
                     val manager = AppWidgetManager.getInstance(context)
                     if (manager.isRequestPinAppWidgetSupported) {
@@ -76,7 +76,7 @@ fun WidgetsScreen() {
                 Text("Make it yours", style = MaterialTheme.typography.titleLarge)
                 Text("Applies to all Today widgets. Financial amounts stay masked while privacy is enabled.", style = MaterialTheme.typography.bodySmall)
                 Option("Timeline", options.timeline) { update(options.copy(timeline = it)) }
-                Option("Water and calories", options.progress) { update(options.copy(progress = it)) }
+                Option("Nutrition and water", options.progress) { update(options.copy(progress = it)) }
                 Option("Money summary", options.money) { update(options.copy(money = it)) }
                 Option("Show net worth", options.netWorth) { update(options.copy(netWorth = it)) }
                 Option("Show financial amounts", !options.privacy) { update(options.copy(privacy = !it)) }

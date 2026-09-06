@@ -29,9 +29,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddOrEditCarScreen(
     repository: CarRepository,
-    onSaved: () -> Unit
+    onSaved: () -> Unit,
+    carId: Long? = null
 ) {
-    val existingCar by repository.primaryCar.collectAsState(initial = null)
+    val cars by repository.cars.collectAsState(initial = emptyList())
+    val existingCar = cars.firstOrNull { it.id == carId }
 
     var name by remember { mutableStateOf("") }
     var odometer by remember { mutableStateOf("0") }

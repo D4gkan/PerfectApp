@@ -80,8 +80,8 @@ class CarViewModel(private val repository: CarRepository) : ViewModel() {
     fun deleteMaintenance(item: MaintenanceEntity) {
         viewModelScope.launch { repository.deleteMaintenance(item) }
     }
-    fun addFuel(entry: com.perfectapp.data.entities.FuelEntryEntity, fundingAssetId: Long?) {
-        val car = uiState.value.car ?: return
-        viewModelScope.launch { repository.addFuel(entry, fundingAssetId, car.name) }
+    suspend fun addFuel(entry: com.perfectapp.data.entities.FuelEntryEntity) {
+        val car = uiState.value.car ?: error("Select a vehicle")
+        repository.addFuel(entry, car.name)
     }
 }

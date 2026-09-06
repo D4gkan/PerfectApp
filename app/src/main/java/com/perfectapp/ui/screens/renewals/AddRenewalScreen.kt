@@ -43,23 +43,24 @@ private val RECURRENCE_PRESETS = listOf(
 fun AddRenewalScreen(
     repository: ReminderRepository,
     onSaved: () -> Unit,
-    linkedCarId: Long? = null
+    linkedCarId: Long? = null,
+    existing: ReminderEntity? = null
 ) {
-    var title by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(if (linkedCarId == null) ReminderCategory.SUBSCRIPTION else ReminderCategory.CAR) }
+    var title by remember { mutableStateOf(existing?.title.orEmpty()) }
+    var category by remember { mutableStateOf(existing?.category ?: if (linkedCarId == null) ReminderCategory.SUBSCRIPTION else ReminderCategory.CAR) }
     var categoryExpanded by remember { mutableStateOf(false) }
-    var amount by remember { mutableStateOf("") }
-    var currencyCode by remember { mutableStateOf("USD") }
-    var dueDate by remember { mutableStateOf(LocalDate.now().plusMonths(1)) }
-    var isRecurring by remember { mutableStateOf(true) }
-    var recurrenceMonths by remember { mutableStateOf(1) }
+    var amount by remember { mutableStateOf(existing?.amount?.toString().orEmpty()) }
+    var currencyCode by remember { mutableStateOf(existing?.currencyCode ?: "USD") }
+    var dueDate by remember { mutableStateOf(existing?.dueDate ?: LocalDate.now().plusMonths(1)) }
+    var isRecurring by remember { mutableStateOf(existing?.isRecurring ?: true) }
+    var recurrenceMonths by remember { mutableStateOf(existing?.recurrenceMonths ?: 1) }
     var recurrenceExpanded by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Add Renewal") }) }
+        topBar = { TopAppBar(title = { Text(if (existing == null) "Add Renewal" else "Edit Renewal") }) }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -116,7 +117,7 @@ fun AddRenewalScreen(
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
-                        value = currencyCode, onValueChange = { currencyCode = it.uppercase().take(6) },
+                        value = currencyCode, onValueChange = { currencyCode = it.trim().uppercase().take(3) },
                         label = { Text("Currency") },
                         modifier = Modifier.weight(1f)
                     )
@@ -176,19 +177,24 @@ fun AddRenewalScreen(
                             errorMessage = "Name is required"
                             return@Button
                         }
+                        val parsedAmount = amount.replace(',', '.').toDoubleOrNull()
+                        if (amount.isNotBlank() && (parsedAmount == null || !parsedAmount.isFinite() || parsedAmount < 0)) { errorMessage = "Enter a valid non-negative amount"; return@Button }
+                        if (currencyCode !in setOf("USD", "TRY", "EUR", "GBP")) { errorMessage = "Choose USD, TRY, EUR or GBP"; return@Button }
                         errorMessage = null
                         val reminder = ReminderEntity(
+                            id = existing?.id ?: 0,
+                            isCompleted = existing?.isCompleted ?: false,
                             title = title,
                             dueDate = dueDate,
                             isRecurring = isRecurring,
                             recurrenceMonths = if (isRecurring) recurrenceMonths else null,
-                            amount = amount.toDoubleOrNull(),
+                            amount = parsedAmount,
                             currencyCode = currencyCode,
                             category = category,
-                            carId = linkedCarId
+                            carId = existing?.carId ?: linkedCarId
                         )
                         scope.launch {
-                            repository.add(reminder)
+                            if (existing == null) repository.add(reminder) else repository.update(reminder)
                             onSaved()
                         }
                     },

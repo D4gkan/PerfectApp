@@ -39,23 +39,24 @@ import com.perfectapp.ui.components.DatePickerField
 @Composable
 fun AddSubscriptionScreen(
     repository: WealthRepository,
-    onSaved: () -> Unit
+    onSaved: () -> Unit,
+    existing: SubscriptionEntity? = null
 ) {
-    var name by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var currencyCode by remember { mutableStateOf(BASE_CURRENCY) }
-    var billingCycle by remember { mutableStateOf(BillingCycle.MONTHLY) }
+    var name by remember { mutableStateOf(existing?.name.orEmpty()) }
+    var amount by remember { mutableStateOf(existing?.amount?.toString().orEmpty()) }
+    var currencyCode by remember { mutableStateOf(existing?.currencyCode ?: BASE_CURRENCY) }
+    var billingCycle by remember { mutableStateOf(existing?.billingCycle ?: BillingCycle.MONTHLY) }
     var cycleExpanded by remember { mutableStateOf(false) }
-    var nextChargeDate by remember { mutableStateOf(LocalDate.now().plusMonths(1)) }
+    var nextChargeDate by remember { mutableStateOf(existing?.nextChargeDate ?: LocalDate.now().plusMonths(1)) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var fundingAssetId by remember { mutableStateOf<Long?>(null) }
+    var fundingAssetId by remember { mutableStateOf<Long?>(existing?.fundingAssetId) }
     var assetExpanded by remember { mutableStateOf(false) }
     val assets by repository.assets.collectAsState(initial = emptyList())
 
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Add Subscription") }) }
+        topBar = { TopAppBar(title = { Text(if (existing == null) "Automatic renewal" else "Edit automatic renewal") }) }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -173,6 +174,9 @@ fun AddSubscriptionScreen(
                         }
                         errorMessage = null
                         val subscription = SubscriptionEntity(
+                            id = existing?.id ?: 0,
+                            autoRenew = existing?.autoRenew ?: true,
+                            isActive = existing?.isActive ?: true,
                             name = name,
                             amount = amountValue,
                             currencyCode = currencyCode,
@@ -181,7 +185,7 @@ fun AddSubscriptionScreen(
                             ,fundingAssetId = fundingAssetId
                         )
                         scope.launch {
-                            repository.addSubscription(subscription)
+                            if (existing == null) repository.addSubscription(subscription) else repository.updateSubscription(subscription)
                             onSaved()
                         }
                     },

@@ -29,22 +29,25 @@ and no dependency on an internet connection.
 ### Refreshed navigation and widgets
 
 - System-aware light and dark themes with ruby red accents and neutral silver surfaces, animated tab selection, screen fades, and smooth card/progress updates
-- Labeled, horizontally scrollable bottom tabs for every section, including Car, Renewals, Widgets, Search, Alerts, Backup, and Settings
+- Labeled, horizontally scrollable bottom tabs for every section, including Car, Renewals, Widgets, Alerts, Backup, and Settings
 - A Widgets tab with a Today widget pinning button (or manual instructions for launchers without pinning support)
-- A resizable Today widget with net worth and money at the top, tasks/reminders on the left and birthday countdowns on the right beneath it, followed by daily progress and quick actions
+- A resizable Today widget with net worth and money at the top, tasks/reminders on the left, University in the middle and birthday countdowns on the right beneath it, followed by daily progress and quick actions
 - Widgets load saved data before rendering, observe live changes, refresh after database changes, and request periodic launcher updates every 30 minutes (Android may defer these)
 - Calendar widgets include recurring events and omit completed items; old repeating series no longer disappear after 500 elapsed occurrences
 
 To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add Today widget**, and confirm the launcher prompt. Enabled summaries appear at every size; scroll inside the widget for overflow or expand it to see more. Configure summaries, financial privacy, and three shortcuts in Widgets. Tap individual items to open the relevant screen.
 
-Validation: debug build and 14 unit tests pass, including calendar recurrence and birthday regression tests. Emulator checks covered navigation, dashboard widget pinning/rendering, opening the app from the widget, and automatic refresh after saving a recurring calendar event.
+Validation: debug and minified release builds and 18 unit tests pass, including calendar recurrence, birthday and renewal currency regression tests. Emulator checks cover Home navigation from a widget launch, birthday search, University management, renewal editing and USD conversion, and TRY cash fuel expenses.
 
-### Today widget and birthdays
+### Today widget and calendar
 
-- Net worth and the money summary appear first. Tasks/reminders on the left and birthday countdowns on the right sit beneath them.
+- Net worth and the money summary appear at the top left, with recent transactions on the right (green income, red expenses).
+- Below them are three columns: tasks/reminders, University, and birthday countdowns.
+- Expanded widgets show protein and carbs beneath water/calorie progress. Ruby red accents replace the previous pink widget accent.
 - Enabled money and net-worth summaries appear at every widget size, with scrolling for overflow. Net worth can be enabled independently of the money summary.
 - Widget settings update live. Enable Show financial amounts to reveal values.
-- Calendar has a Birthdays view and an add-birthday flow that saves all-day yearly events.
+- Calendar has searchable Birthdays and an add-birthday flow that saves all-day yearly events.
+- University is a dedicated calendar view and event type for manually adding, editing and deleting lessons or exams. Existing university lessons remain compatible.
 - Birthday countdown regression tests cover today, tomorrow, year rollover, and February 29.
 
 ### One calm dashboard
@@ -52,7 +55,8 @@ Validation: debug build and 14 unit tests pass, including calendar recurrence an
 - Live summaries for health, diet, water, wealth, calendar events, car maintenance, and reminders
 - Quick actions for the things you record most often
 - Reusable premium cards, progress indicators, countdowns, and metric rows
-- Search across the app when you need to find something quickly
+- Search birthdays in Calendar and transactions in Wealth; the separate Search tab has been removed
+- Home navigation returns reliably from other tabs and widget launches
 
 ### Health and habits
 
@@ -67,9 +71,15 @@ Validation: debug build and 14 unit tests pass, including calendar recurrence an
 
 - Assets, transactions, net worth snapshots, and multi-currency values
 - Local exchange-rate management
-- Subscriptions with recurring due dates and bookkeeping automation
+- Renewals is the single place for manual renewals and automatic subscriptions, including existing subscription records
+- Edit renewal details without changing their identity, currency or linked vehicle
+- Native renewal amounts remain in their saved currencies; USD equivalents and monthly totals use locally saved Wealth exchange rates
+- Missing exchange rates are reported instead of relabeling foreign amounts as USD
 - Calendar events with repeating occurrences and reminders
-- Vehicle profile, odometer history, fuel, and maintenance records
+- Add, edit, remove and switch vehicles from the selector at the top left of Car
+- Vehicle-specific odometer history, fuel, maintenance and renewals
+- Fuel is always paid from TRY CASH; each save atomically records the fuel entry, Wealth expense and cash-balance change
+- Editing a vehicle preserves its fuel/maintenance history; removing it keeps Wealth transactions and renewal reminders
 - Renewals and important due-date reminders
 
 ### Android-native utility
@@ -145,7 +155,7 @@ The generated APK is written beneath `app/build/outputs/apk/`. Use Gradle 8.10; 
 
 ## Version
 
-**v1.0.1** improves the Today widget with a money-first layout, separate task and birthday columns, compact typography, live visibility settings, and scrollable summaries. Calendar includes a dedicated Birthdays view with yearly events and countdowns. Android version code: **2**.
+**v1.0.1** brings a money-first, three-column Today widget with recent transactions and expanded nutrition totals; searchable birthdays and University scheduling; unified, editable renewals with correct currency conversion; reliable Home navigation; and multiple vehicles with automatic TRY cash fuel expenses. Android version code: **2**.
 
 ## License
 

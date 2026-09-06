@@ -40,7 +40,6 @@ val bottomNavItems = listOf(
     Destination.Car,
     Destination.Renewals,
     Destination.Widgets,
-    Destination.Search,
     Destination.Notifications,
     Destination.Backup,
     Destination.Settings

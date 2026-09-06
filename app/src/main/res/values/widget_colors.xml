@@ -4,4 +4,6 @@
     <color name="widgetmuted">#60606A</color>
     <color name="widgetaccent">#9B111E</color>
     <color name="widgettrack">#E1E1E7</color>
+    <color name="widgetincome">#187044</color>
+    <color name="widgetexpense">#9B111E</color>
 </resources>

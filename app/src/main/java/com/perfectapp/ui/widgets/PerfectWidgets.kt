@@ -40,7 +40,7 @@ internal fun openWidgetRoute(context: Context, route: String) = actionStartActiv
         .setAction("com.perfectapp.widget.$route").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
 
 internal data class TodayItem(val title: String, val time: LocalDateTime, val route: String, val allDay: Boolean = false)
-internal data class TodayData(val items: List<TodayItem> = emptyList(), val birthdays: List<TodayItem> = emptyList(), val water: Int = 0, val waterGoal: Int = 2500,
+internal data class TodayData(val university: List<TodayItem> = emptyList(), val recent: List<com.perfectapp.data.entities.TransactionEntity> = emptyList(), val protein: Double = 0.0, val carbs: Double = 0.0, val proteinGoal: Int = 0, val carbsGoal: Int = 0, val items: List<TodayItem> = emptyList(), val birthdays: List<TodayItem> = emptyList(), val water: Int = 0, val waterGoal: Int = 2500,
     val calories: Int = 0, val calorieGoal: Int = 2000, val spending: String = "No spending today", val worth: String = "", val payment: String = "No upcoming payments")
 
 internal fun todayData(c: AppContainer): Flow<TodayData> {
@@ -48,28 +48,31 @@ internal fun todayData(c: AppContainer): Flow<TodayData> {
     val today = LocalDate.now()
     val agenda = combine(c.calendarRepository.allEvents, c.reminderRepository.upcoming, c.wealthRepository.activeSubscriptions) { events, reminders, subscriptions ->
         val now = LocalDateTime.now()
-        val calendar = CalendarOccurrences.upcoming(events.filter { it.itemType != CalendarItemType.BIRTHDAY }, today.atStartOfDay(), 30)
+        val calendar = CalendarOccurrences.upcoming(events.filter { it.itemType != CalendarItemType.BIRTHDAY && it.itemType != CalendarItemType.UNIVERSITY_LESSON }, today.atStartOfDay(), 30)
             .filter { it.event.isAllDay || !it.occurrenceDateTime.isBefore(now) }
             .map { TodayItem(it.event.title, it.occurrenceDateTime, "calendar/edit/${it.event.id}", it.event.isAllDay) }
         val renewals = reminders.filter { !it.isCompleted }.map { TodayItem(it.title, it.dueDate.atStartOfDay(), "renewals", true) }
-        val payments = subscriptions.map { TodayItem(it.name, it.nextChargeDate.atStartOfDay(), "wealth", true) }
-        (calendar + renewals + payments).sortedBy { it.time } to Birthdays.upcoming(events, today).map {
+        val payments = subscriptions.map { TodayItem(it.name, it.nextChargeDate.atStartOfDay(), "renewals", true) }
+        Triple((calendar + renewals + payments).sortedBy { it.time }, Birthdays.upcoming(events, today).map {
             TodayItem(it.event.title, it.occurrenceDateTime, "calendar/edit/${it.event.id}", true)
-        }
+        }, CalendarOccurrences.upcoming(events.filter { it.itemType == CalendarItemType.UNIVERSITY_LESSON }, today.atStartOfDay(), 30).filter { it.event.isAllDay || !it.occurrenceDateTime.isBefore(now) }.take(10).map {
+            TodayItem(it.event.title, it.occurrenceDateTime, "calendar/edit/${it.event.id}", it.event.isAllDay)
+        })
     }
     val progress = combine(c.waterRepository.totalForDate(today), c.dietRepository.mealsForDate(today), c.dietRepository.goal) { water, meals, goal ->
-        TodayData(water = water, waterGoal = goal?.waterGoalMl ?: 2500, calories = meals.sumOf { it.calories }, calorieGoal = goal?.calorieGoal ?: 2000)
+        TodayData(protein = meals.sumOf { it.proteinG }, carbs = meals.sumOf { it.carbsG }, proteinGoal = goal?.proteinGoalG ?: 0, carbsGoal = goal?.carbsGoalG ?: 0, water = water, waterGoal = goal?.waterGoalMl ?: 2500, calories = meals.sumOf { it.calories }, calorieGoal = goal?.calorieGoal ?: 2000)
     }
     val money = combine(c.wealthRepository.transactions, c.wealthRepository.assets, c.wealthRepository.exchangeRates, c.wealthRepository.goldSettings) { transactions, assets, rates, gold ->
         val spending = transactions.filter { it.date == today && it.type == TransactionType.EXPENSE }.groupBy { it.currencyCode }
             .entries.joinToString(" · ") { (currency, rows) -> "$currency %,.2f".format(rows.sumOf { it.amount }) }
         val exchange = rates.associate { it.currencyCode to it.rateToBase }
         val worth = c.wealthRepository.calculateNetWorth(assets, exchange, "USD") + (gold?.let { c.wealthRepository.goldValueUsd(it, exchange) } ?: 0.0)
-        spending.ifEmpty { "No spending today" } to "USD %,.2f".format(worth)
+        Triple(spending.ifEmpty { "No spending today" }, "USD %,.2f".format(worth), transactions.sortedWith(compareByDescending<com.perfectapp.data.entities.TransactionEntity> { it.date }.thenByDescending { it.time }).take(3))
     }
-    return combine(agenda, progress, money, c.wealthRepository.activeSubscriptions) { items, progressData, moneyData, subscriptions ->
-        progressData.copy(items = items.first, birthdays = items.second, spending = moneyData.first, worth = moneyData.second,
-            payment = subscriptions.minByOrNull { it.nextChargeDate }?.let { "${it.name} · ${it.nextChargeDate.format(DateTimeFormatter.ofPattern("MMM d"))}" } ?: "No upcoming payments")
+    return combine(agenda, progress, money, c.wealthRepository.activeSubscriptions, c.reminderRepository.all) { items, progressData, moneyData, subscriptions, reminders ->
+        progressData.copy(items = items.first, birthdays = items.second, university = items.third, recent = moneyData.third, spending = moneyData.first, worth = moneyData.second,
+            payment = (subscriptions.filter { it.autoRenew }.map { it.nextChargeDate to it.name } + reminders.filter { !it.isCompleted && it.amount != null }.map { it.dueDate to it.title })
+                .minByOrNull { it.first }?.let { "${it.second} - ${it.first.format(DateTimeFormatter.ofPattern("MMM d"))}" } ?: "No upcoming payments")
     }
 }
 
@@ -89,49 +92,52 @@ class HomeDashboardWidget : GlanceAppWidget() {
 @Composable
 private fun TodayContent(context: Context, data: TodayData, options: WidgetOptions) {
     val tall = LocalSize.current.height >= 340.dp
+    val shown = if (tall && options.timeline) 3 else 1
     Column(GlanceModifier.fillMaxSize().background(widgetBackground).cornerRadius(22.dp).padding(12.dp)) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Today", GlanceModifier.defaultWeight().clickable(openWidgetRoute(context, "home")),
-                style = TextStyle(color = widgetText, fontSize = 17.sp, fontWeight = FontWeight.Bold))
+            Text("Today", GlanceModifier.defaultWeight().clickable(openWidgetRoute(context, "home")), style = TextStyle(color = widgetText, fontSize = 17.sp, fontWeight = FontWeight.Bold))
             Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, MMM d")), style = TextStyle(color = widgetMuted, fontSize = 11.sp))
-            Text("Settings", GlanceModifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp).clickable(openWidgetRoute(context, "widgets")),
-                style = TextStyle(color = widgetAccent, fontSize = 10.sp))
+            Text("Settings", GlanceModifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp).clickable(openWidgetRoute(context, "widgets")), style = TextStyle(color = widgetAccent, fontSize = 10.sp))
         }
-        // Scroll the content instead of silently dropping enabled sections on small widgets.
         LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
             if (options.money || options.netWorth) item {
-                Column(GlanceModifier.fillMaxWidth().background(widgetTrack).cornerRadius(10.dp).padding(9.dp).clickable(openWidgetRoute(context, "wealth"))) {
-                    if (options.netWorth) {
-                        SmallText("NET WORTH", widgetMuted)
-                        Text(if (options.privacy) "Amount hidden" else data.worth,
-                            style = TextStyle(color = widgetText, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                Row(GlanceModifier.fillMaxWidth().background(widgetTrack).cornerRadius(10.dp).padding(9.dp)) {
+                    Column(GlanceModifier.defaultWeight().padding(end = 8.dp).clickable(openWidgetRoute(context, "wealth"))) {
+                        if (options.netWorth) {
+                            Label("NET WORTH")
+                            Text(if (options.privacy) "Amount hidden" else data.worth, style = TextStyle(color = widgetText, fontSize = 16.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                        }
+                        if (options.money) {
+                            SmallText(if (options.privacy) "Spending hidden" else "Today: ${data.spending}", widgetText)
+                            SmallText(data.payment, widgetMuted)
+                        }
                     }
-                    if (options.money) {
-                        SmallText(if (options.privacy) "Today: spending hidden" else "Today: ${data.spending}", widgetText)
-                        SmallText(data.payment, widgetMuted)
+                    Column(GlanceModifier.defaultWeight().padding(start = 8.dp).clickable(openWidgetRoute(context, "wealth"))) {
+                        Label("RECENT TRANSACTIONS")
+                        if (data.recent.isEmpty()) SmallText("No transactions yet", widgetMuted)
+                        data.recent.take(if (tall) 3 else 2).forEach { tx ->
+                            val income = tx.type == TransactionType.INCOME
+                            SmallText(tx.category, widgetMuted)
+                            SmallText(if (options.privacy) "Amount hidden" else (if (income) "+" else "-") + "${tx.currencyCode} %,.2f".format(tx.amount),
+                                ColorProvider(if (income) com.perfectapp.R.color.widgetincome else com.perfectapp.R.color.widgetexpense), bold = true)
+                        }
                     }
                 }
             }
             item {
-                Row(GlanceModifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                    Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
+                Row(GlanceModifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
+                    Column(GlanceModifier.defaultWeight().padding(end = 6.dp)) {
                         Label("TASKS & REMINDERS")
-                        val visible = data.items.take(if (tall && options.timeline) 3 else 1)
-                        if (visible.isEmpty()) SmallText("Nothing scheduled", widgetMuted)
-                        visible.forEach { item ->
-                            Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(openWidgetRoute(context, item.route))) {
-                                SmallText(item.title, widgetText, bold = true)
-                                SmallText(timeLabel(item), widgetMuted)
-                            }
-                        }
+                        AgendaItems(context, data.items.take(shown), "Nothing scheduled")
                     }
-                    Box(GlanceModifier.width(1.dp).height(if (tall) 90.dp else 64.dp).background(widgetTrack)) {}
-                    Column(GlanceModifier.defaultWeight().padding(start = 10.dp)) {
+                    Column(GlanceModifier.defaultWeight().padding(horizontal = 6.dp)) {
+                        Label("UNIVERSITY")
+                        AgendaItems(context, data.university.take(shown), "No lessons or exams")
+                    }
+                    Column(GlanceModifier.defaultWeight().padding(start = 6.dp)) {
                         Label("BIRTHDAYS")
-                        if (data.birthdays.isEmpty()) {
-                            Text("Add a birthday", GlanceModifier.clickable(openWidgetRoute(context, "calendar/birthday")), style = TextStyle(color = widgetMuted, fontSize = 11.sp))
-                        }
-                        data.birthdays.take(if (tall) 3 else 1).forEach { item ->
+                        if (data.birthdays.isEmpty()) Text("Add birthday", GlanceModifier.clickable(openWidgetRoute(context, "calendar/birthday")), style = TextStyle(color = widgetMuted, fontSize = 11.sp))
+                        data.birthdays.take(shown).forEach { item ->
                             Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(openWidgetRoute(context, item.route))) {
                                 SmallText(item.title, widgetText, bold = true)
                                 SmallText(Birthdays.countdown(item.time.toLocalDate(), LocalDate.now()), widgetAccent)
@@ -141,8 +147,8 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
                 }
             }
             if (options.progress) item {
-                Column(GlanceModifier.padding(top = 8.dp, bottom = 8.dp)) {
-                    Row(GlanceModifier.fillMaxWidth().clickable(openWidgetRoute(context, "diet"))) {
+                Column(GlanceModifier.padding(top = 4.dp, bottom = 8.dp).clickable(openWidgetRoute(context, "diet"))) {
+                    Row(GlanceModifier.fillMaxWidth()) {
                         Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
                             SmallText("Water ${data.water}/${data.waterGoal} ml", widgetMuted)
                             LinearProgressIndicator((data.water.toFloat() / data.waterGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
@@ -152,10 +158,17 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
                             LinearProgressIndicator((data.calories.toFloat() / data.calorieGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
                         }
                     }
+                    if (tall) Row(GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
+                        Column(GlanceModifier.defaultWeight()) {
+                            Label("PROTEIN")
+                            SmallText("%.0f / %d g".format(data.protein, data.proteinGoal), widgetText)
+                        }
+                        Column(GlanceModifier.defaultWeight()) {
+                            Label("CARBS")
+                            SmallText("%.0f / %d g".format(data.carbs, data.carbsGoal), widgetText)
+                        }
+                    }
                 }
-            }
-            item {
-                Text("View calendar", GlanceModifier.padding(vertical = 6.dp).clickable(openWidgetRoute(context, "calendar")), style = TextStyle(color = widgetAccent, fontSize = 11.sp))
             }
         }
         if (context.getSharedPreferences("today_widget", Context.MODE_PRIVATE).getLong("undo_water", 0) != 0L) {
@@ -172,11 +185,20 @@ private fun TodayContent(context: Context, data: TodayData, options: WidgetOptio
         }
     }
 }
+@Composable private fun AgendaItems(context: Context, items: List<TodayItem>, empty: String) {
+    if (items.isEmpty()) SmallText(empty, widgetMuted)
+    items.forEach { item ->
+        Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(openWidgetRoute(context, item.route))) {
+            SmallText(item.title, widgetText, bold = true)
+            SmallText(timeLabel(item), widgetMuted)
+        }
+    }
+}
 @Composable private fun SmallText(text: String, color: ColorProvider, bold: Boolean = false) {
     Text(text, style = TextStyle(color = color, fontSize = 11.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal), maxLines = 2)
 }
 @Composable private fun Label(text: String) {
-    Text(text, GlanceModifier.padding(top = 5.dp, bottom = 5.dp), style = TextStyle(color = widgetAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+    Text(text, GlanceModifier.padding(top = 4.dp, bottom = 5.dp), style = TextStyle(color = widgetAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold), maxLines = 2)
 }
 internal fun timeLabel(item: TodayItem, now: LocalDateTime = LocalDateTime.now()): String {
     val date = item.time.toLocalDate()

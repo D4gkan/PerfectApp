@@ -72,7 +72,7 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
     if (!settings.onboardingComplete) { OnboardingScreen(container); return }
     val navController = rememberNavController()
     androidx.compose.runtime.LaunchedEffect(widgetRoute) {
-        if (widgetRoute != null && (widgetRoute in setOf("home", "diet", "wealth", "wealth/add-transaction", "calendar", "calendar/add", "calendar/birthday", "renewals", "widgets", "diet/add") || widgetRoute.matches(Regex("calendar/edit/[0-9]+")))) {
+        if (widgetRoute != null && (widgetRoute in setOf("home", "diet", "wealth", "wealth/add-transaction", "calendar", "calendar/add", "calendar/birthday", "calendar/university", "renewals", "widgets", "diet/add") || widgetRoute.matches(Regex("calendar/edit/[0-9]+")))) {
             navController.navigate(widgetRoute) { launchSingleTop = true }
         }
     }
@@ -99,7 +99,7 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
                                     saveState = true
                                 }
                                 launchSingleTop = true
-                                restoreState = true
+                                restoreState = destination != Destination.Home
                             }
                         }),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -161,8 +161,7 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
                     repository = container.wealthRepository,
                     settingsRepository = container.settingsRepository,
                     onAddAsset = { navController.navigate("wealth/add-asset") },
-                    onAddTransaction = { navController.navigate("wealth/add-transaction") },
-                    onAddSubscription = { navController.navigate("wealth/add-subscription") }
+                    onAddTransaction = { navController.navigate("wealth/add-transaction") }
                 )
             }
             composable("wealth/add-subscription") {
@@ -188,8 +187,12 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
                     repository = container.calendarRepository,
                     onAddEvent = { navController.navigate("calendar/add") },
                     onAddBirthday = { navController.navigate("calendar/birthday") },
+                    onAddUniversity = { navController.navigate("calendar/university") },
                     onEditEvent = { id -> navController.navigate("calendar/edit/$id") }
                 )
+            }
+            composable("calendar/university") {
+                AddEventScreen(repository = container.calendarRepository, onSaved = { navController.popBackStack() }, initialType = com.perfectapp.data.entities.CalendarItemType.UNIVERSITY_LESSON)
             }
             composable("calendar/birthday") {
                 AddEventScreen(repository = container.calendarRepository,
@@ -226,6 +229,8 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
             composable("renewals") {
                 RenewalsScreen(
                     repository = container.reminderRepository,
+                    wealthRepository = container.wealthRepository,
+                    onAddAutomatic = { navController.navigate("wealth/add-subscription") },
                     onAddRenewal = { navController.navigate("renewals/add") }
                 )
             }
@@ -240,12 +245,16 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
                     repository = container.carRepository,
                     wealthRepository = container.wealthRepository,
                     reminderRepository = container.reminderRepository,
-                    onAddOrEditCar = { navController.navigate("car/edit") },
+                    onAddOrEditCar = { navController.navigate("car/add") },
+                    onEditCar = { id -> navController.navigate("car/edit/$id") },
                     onAddMaintenance = { carId -> navController.navigate("car/add-maintenance/$carId") },
                     onAddCarRenewal = { carId -> navController.navigate("car/renewal/$carId") }
                 )
             }
-            composable("car/edit") {
+            composable("car/edit/{carId}", arguments = listOf(navArgument("carId") { type = NavType.LongType })) { entry ->
+                AddOrEditCarScreen(repository = container.carRepository, carId = entry.arguments?.getLong("carId"), onSaved = { navController.popBackStack() })
+            }
+            composable("car/add") {
                 AddOrEditCarScreen(
                     repository = container.carRepository,
                     onSaved = { navController.popBackStack() }

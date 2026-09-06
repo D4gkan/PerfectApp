@@ -41,10 +41,4 @@ class ReminderRepository(db: PerfectDatabase, private val context: Context? = nu
         }
     }
 
-    /** Estimated monthly cost across all active recurring renewals, normalizing each item's
-     *  interval down to a per-month figure (e.g. a yearly $120 renewal counts as $10/month). */
-    fun estimatedMonthlyCost(reminders: List<ReminderEntity>): Double =
-        reminders
-            .filter { !it.isCompleted && it.isRecurring && it.amount != null && it.recurrenceMonths != null && it.recurrenceMonths!! > 0 }
-            .sumOf { it.amount!! / it.recurrenceMonths!! }
 }
