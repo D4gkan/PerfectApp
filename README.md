@@ -145,3 +145,11 @@ real workflows across the core areas of personal life.
 Perfect App is released under the [MIT License](LICENSE).
 
 Copyright (c) 2026 Perfect App contributors.
+
+### Today widget and birthdays
+
+- Tasks and reminders appear on the left; birthday countdowns appear on the right.
+- Enabled money and net-worth summaries appear at every widget size, with scrolling for overflow. Net worth can be enabled independently of the money summary.
+- Widget settings update live. Enable Show financial amounts to reveal values.
+- Calendar has a Birthdays view and an add-birthday flow that saves all-day yearly events.
+- Birthday countdown regression tests cover today, tomorrow, year rollover, and February 29.

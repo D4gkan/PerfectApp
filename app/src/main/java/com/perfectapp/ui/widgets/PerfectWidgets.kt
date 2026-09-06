@@ -1,4 +1,4 @@
-﻿package com.perfectapp.ui.widgets
+package com.perfectapp.ui.widgets
 
 import android.content.Context
 import android.content.Intent
@@ -15,6 +15,9 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.layout.*
+import androidx.glance.appwidget.lazy.LazyColumn
+import com.perfectapp.data.entities.CalendarItemType
+import com.perfectapp.domain.calendar.Birthdays
 import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import com.perfectapp.AppContainer
@@ -37,7 +40,7 @@ internal fun openWidgetRoute(context: Context, route: String) = actionStartActiv
         .setAction("com.perfectapp.widget.$route").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
 
 internal data class TodayItem(val title: String, val time: LocalDateTime, val route: String, val allDay: Boolean = false)
-internal data class TodayData(val items: List<TodayItem> = emptyList(), val water: Int = 0, val waterGoal: Int = 2500,
+internal data class TodayData(val items: List<TodayItem> = emptyList(), val birthdays: List<TodayItem> = emptyList(), val water: Int = 0, val waterGoal: Int = 2500,
     val calories: Int = 0, val calorieGoal: Int = 2000, val spending: String = "No spending today", val worth: String = "", val payment: String = "No upcoming payments")
 
 internal fun todayData(c: AppContainer): Flow<TodayData> {
@@ -45,12 +48,14 @@ internal fun todayData(c: AppContainer): Flow<TodayData> {
     val today = LocalDate.now()
     val agenda = combine(c.calendarRepository.allEvents, c.reminderRepository.upcoming, c.wealthRepository.activeSubscriptions) { events, reminders, subscriptions ->
         val now = LocalDateTime.now()
-        val calendar = CalendarOccurrences.upcoming(events, today.atStartOfDay(), 30)
+        val calendar = CalendarOccurrences.upcoming(events.filter { it.itemType != CalendarItemType.BIRTHDAY }, today.atStartOfDay(), 30)
             .filter { it.event.isAllDay || !it.occurrenceDateTime.isBefore(now) }
             .map { TodayItem(it.event.title, it.occurrenceDateTime, "calendar/edit/${it.event.id}", it.event.isAllDay) }
         val renewals = reminders.filter { !it.isCompleted }.map { TodayItem(it.title, it.dueDate.atStartOfDay(), "renewals", true) }
         val payments = subscriptions.map { TodayItem(it.name, it.nextChargeDate.atStartOfDay(), "wealth", true) }
-        (calendar + renewals + payments).sortedBy { it.time }
+        (calendar + renewals + payments).sortedBy { it.time } to Birthdays.upcoming(events, today).map {
+            TodayItem(it.event.title, it.occurrenceDateTime, "calendar/edit/${it.event.id}", true)
+        }
     }
     val progress = combine(c.waterRepository.totalForDate(today), c.dietRepository.mealsForDate(today), c.dietRepository.goal) { water, meals, goal ->
         TodayData(water = water, waterGoal = goal?.waterGoalMl ?: 2500, calories = meals.sumOf { it.calories }, calorieGoal = goal?.calorieGoal ?: 2000)
@@ -63,7 +68,7 @@ internal fun todayData(c: AppContainer): Flow<TodayData> {
         spending.ifEmpty { "No spending today" } to "USD %,.2f".format(worth)
     }
     return combine(agenda, progress, money, c.wealthRepository.activeSubscriptions) { items, progressData, moneyData, subscriptions ->
-        progressData.copy(items = items, spending = moneyData.first, worth = moneyData.second,
+        progressData.copy(items = items.first, birthdays = items.second, spending = moneyData.first, worth = moneyData.second,
             payment = subscriptions.minByOrNull { it.nextChargeDate }?.let { "${it.name} · ${it.nextChargeDate.format(DateTimeFormatter.ofPattern("MMM d"))}" } ?: "No upcoming payments")
     }
 }
@@ -75,69 +80,103 @@ class HomeDashboardWidget : GlanceAppWidget() {
         val initial = source.first()
         provideContent {
             val data by source.collectAsState(initial)
-            TodayContent(context, data, WidgetOptions.read(context))
+            val options by WidgetOptions.observe(context).collectAsState(WidgetOptions.read(context))
+            TodayContent(context, data, options)
         }
     }
 }
 
 @Composable
 private fun TodayContent(context: Context, data: TodayData, options: WidgetOptions) {
-    val height = LocalSize.current.height
-    val expanded = height >= 340.dp
-    val roomy = height >= 460.dp
-    Column(GlanceModifier.fillMaxSize().background(widgetBackground).cornerRadius(24.dp).padding(16.dp)) {
+    val tall = LocalSize.current.height >= 340.dp
+    Column(GlanceModifier.fillMaxSize().background(widgetBackground).cornerRadius(22.dp).padding(12.dp)) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Today", GlanceModifier.defaultWeight().clickable(openWidgetRoute(context, "home")), style = TextStyle(color = widgetText, fontSize = 22.sp, fontWeight = FontWeight.Bold))
-            Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, MMM d")), style = TextStyle(color = widgetMuted, fontSize = 12.sp))
-            Text("  ⚙", GlanceModifier.width(40.dp).height(40.dp).clickable(openWidgetRoute(context, "widgets")), style = TextStyle(color = widgetAccent, fontSize = 20.sp))
+            Text("Today", GlanceModifier.defaultWeight().clickable(openWidgetRoute(context, "home")),
+                style = TextStyle(color = widgetText, fontSize = 17.sp, fontWeight = FontWeight.Bold))
+            Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, MMM d")), style = TextStyle(color = widgetMuted, fontSize = 11.sp))
+            Text("Settings", GlanceModifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp).clickable(openWidgetRoute(context, "widgets")),
+                style = TextStyle(color = widgetAccent, fontSize = 10.sp))
         }
-        val first = data.items.firstOrNull()
-        Label(if (first != null && first.time.toLocalDate().isBefore(LocalDate.now())) "NEEDS ATTENTION" else "UP NEXT")
-        Text(first?.title ?: "Your day is clear", GlanceModifier.fillMaxWidth().clickable(openWidgetRoute(context, first?.route ?: "calendar")),
-            style = TextStyle(color = widgetText, fontSize = 19.sp, fontWeight = FontWeight.Bold), maxLines = 1)
-        Text(first?.let { timeLabel(it) } ?: "Nothing else scheduled today", style = TextStyle(color = widgetMuted, fontSize = 12.sp), maxLines = 1)
-        if (expanded && options.timeline) {
-            Spacer(GlanceModifier.height(12.dp))
-            data.items.drop(1).take(if (roomy) 3 else 2).forEach { item ->
-                Text("${timeLabel(item)}  ·  ${item.title}", GlanceModifier.fillMaxWidth().padding(vertical = 5.dp).clickable(openWidgetRoute(context, item.route)), style = TextStyle(color = widgetText, fontSize = 12.sp), maxLines = 1)
-            }
-            Text("View calendar →", GlanceModifier.padding(vertical = 4.dp).clickable(openWidgetRoute(context, "calendar")), style = TextStyle(color = widgetAccent, fontSize = 12.sp))
-        }
-        if (expanded && options.progress) {
-            Label("DAILY PROGRESS")
-            Row(GlanceModifier.fillMaxWidth()) {
-                Column(GlanceModifier.defaultWeight().padding(end = 10.dp).clickable(openWidgetRoute(context, "diet"))) {
-                    Text("Water  ${data.water}/${data.waterGoal} ml", style = TextStyle(color = widgetMuted, fontSize = 11.sp), maxLines = 1)
-                    LinearProgressIndicator((data.water.toFloat() / data.waterGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 5.dp), color = widgetAccent, backgroundColor = widgetTrack)
+        // Scroll the content instead of silently dropping enabled sections on small widgets.
+        LazyColumn(GlanceModifier.fillMaxWidth().defaultWeight()) {
+            item {
+                Row(GlanceModifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
+                        Label("TASKS & REMINDERS")
+                        val visible = data.items.take(if (tall && options.timeline) 3 else 1)
+                        if (visible.isEmpty()) SmallText("Nothing scheduled", widgetMuted)
+                        visible.forEach { item ->
+                            Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(openWidgetRoute(context, item.route))) {
+                                SmallText(item.title, widgetText, bold = true)
+                                SmallText(timeLabel(item), widgetMuted)
+                            }
+                        }
+                    }
+                    Box(GlanceModifier.width(1.dp).height(if (tall) 90.dp else 64.dp).background(widgetTrack)) {}
+                    Column(GlanceModifier.defaultWeight().padding(start = 10.dp)) {
+                        Label("BIRTHDAYS")
+                        if (data.birthdays.isEmpty()) {
+                            Text("Add a birthday", GlanceModifier.clickable(openWidgetRoute(context, "calendar/birthday")), style = TextStyle(color = widgetMuted, fontSize = 11.sp))
+                        }
+                        data.birthdays.take(if (tall) 3 else 1).forEach { item ->
+                            Column(GlanceModifier.fillMaxWidth().padding(bottom = 6.dp).clickable(openWidgetRoute(context, item.route))) {
+                                SmallText(item.title, widgetText, bold = true)
+                                SmallText(Birthdays.countdown(item.time.toLocalDate(), LocalDate.now()), widgetAccent)
+                            }
+                        }
+                    }
                 }
-                Column(GlanceModifier.defaultWeight().clickable(openWidgetRoute(context, "diet"))) {
-                    Text("Calories  ${data.calories}/${data.calorieGoal}", style = TextStyle(color = widgetMuted, fontSize = 11.sp), maxLines = 1)
-                    LinearProgressIndicator((data.calories.toFloat() / data.calorieGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 5.dp), color = widgetAccent, backgroundColor = widgetTrack)
+            }
+            if (options.money || options.netWorth) item {
+                Column(GlanceModifier.fillMaxWidth().background(widgetTrack).cornerRadius(10.dp).padding(9.dp).clickable(openWidgetRoute(context, "wealth"))) {
+                    if (options.netWorth) {
+                        SmallText("NET WORTH", widgetMuted)
+                        Text(if (options.privacy) "Amount hidden" else data.worth,
+                            style = TextStyle(color = widgetText, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 2)
+                    }
+                    if (options.money) {
+                        SmallText(if (options.privacy) "Today: spending hidden" else "Today: ${data.spending}", widgetText)
+                        SmallText(data.payment, widgetMuted)
+                    }
                 }
             }
+            if (options.progress) item {
+                Column(GlanceModifier.padding(top = 8.dp, bottom = 8.dp)) {
+                    Row(GlanceModifier.fillMaxWidth().clickable(openWidgetRoute(context, "diet"))) {
+                        Column(GlanceModifier.defaultWeight().padding(end = 10.dp)) {
+                            SmallText("Water ${data.water}/${data.waterGoal} ml", widgetMuted)
+                            LinearProgressIndicator((data.water.toFloat() / data.waterGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
+                        }
+                        Column(GlanceModifier.defaultWeight()) {
+                            SmallText("Calories ${data.calories}/${data.calorieGoal}", widgetMuted)
+                            LinearProgressIndicator((data.calories.toFloat() / data.calorieGoal.coerceAtLeast(1)).coerceIn(0f, 1f), GlanceModifier.fillMaxWidth().padding(top = 4.dp), color = widgetAccent, backgroundColor = widgetTrack)
+                        }
+                    }
+                }
+            }
+            item {
+                Text("View calendar", GlanceModifier.padding(vertical = 6.dp).clickable(openWidgetRoute(context, "calendar")), style = TextStyle(color = widgetAccent, fontSize = 11.sp))
+            }
         }
-        if (roomy && options.money) {
-            Label("MONEY")
-            Text(if (options.privacy) "Spending hidden" else "Today · ${data.spending}", GlanceModifier.clickable(openWidgetRoute(context, "wealth")), style = TextStyle(color = widgetText, fontSize = 12.sp), maxLines = 1)
-            Text(data.payment, GlanceModifier.clickable(openWidgetRoute(context, "wealth")), style = TextStyle(color = widgetMuted, fontSize = 12.sp), maxLines = 1)
-            if (options.netWorth) Text(if (options.privacy) "Net worth hidden" else "Net worth · ${data.worth}", style = TextStyle(color = widgetMuted, fontSize = 12.sp), maxLines = 1)
-        }
-        Spacer(GlanceModifier.defaultWeight())
         if (context.getSharedPreferences("today_widget", Context.MODE_PRIVATE).getLong("undo_water", 0) != 0L) {
-            Text("Water added ? Undo", GlanceModifier.height(32.dp).clickable(actionRunCallback<WidgetUndoWaterAction>()), style = TextStyle(color = widgetAccent, fontSize = 12.sp))
+            Text("Water added - Undo", GlanceModifier.height(28.dp).clickable(actionRunCallback<WidgetUndoWaterAction>()), style = TextStyle(color = widgetAccent, fontSize = 11.sp))
         }
-        Row(GlanceModifier.fillMaxWidth().padding(top = 10.dp)) {
+        Row(GlanceModifier.fillMaxWidth().padding(top = 6.dp)) {
             options.shortcuts.forEach { shortcut ->
-                Text("+ $shortcut", GlanceModifier.defaultWeight().height(40.dp).background(widgetTrack).cornerRadius(12.dp).padding(10.dp)
-                    .clickable(if (shortcut == "Water") actionRunCallback<WidgetWaterAction>() else openWidgetRoute(context, shortcutRoute(shortcut))),
-                    style = TextStyle(color = widgetAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                Box(GlanceModifier.defaultWeight().height(36.dp).background(widgetTrack).cornerRadius(10.dp)
+                    .clickable(if (shortcut == "Water") actionRunCallback<WidgetWaterAction>() else openWidgetRoute(context, shortcutRoute(shortcut))), contentAlignment = Alignment.Center) {
+                    Text("+ $shortcut", style = TextStyle(color = widgetAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                }
                 Spacer(GlanceModifier.width(4.dp))
             }
         }
     }
 }
+@Composable private fun SmallText(text: String, color: ColorProvider, bold: Boolean = false) {
+    Text(text, style = TextStyle(color = color, fontSize = 11.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal), maxLines = 2)
+}
 @Composable private fun Label(text: String) {
-    Text(text, GlanceModifier.padding(top = 10.dp, bottom = 4.dp), style = TextStyle(color = widgetAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold))
+    Text(text, GlanceModifier.padding(top = 5.dp, bottom = 5.dp), style = TextStyle(color = widgetAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold), maxLines = 1)
 }
 internal fun timeLabel(item: TodayItem, now: LocalDateTime = LocalDateTime.now()): String {
     val date = item.time.toLocalDate()

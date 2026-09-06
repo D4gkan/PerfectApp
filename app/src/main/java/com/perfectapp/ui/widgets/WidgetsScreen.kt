@@ -1,4 +1,4 @@
-﻿package com.perfectapp.ui.widgets
+package com.perfectapp.ui.widgets
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -13,6 +13,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.perfectapp.ui.components.PremiumCard
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 
 internal data class WidgetOptions(val timeline: Boolean = true, val progress: Boolean = true, val money: Boolean = true,
     val netWorth: Boolean = false, val privacy: Boolean = true, val shortcuts: List<String> = listOf("Water", "Expense", "Event")) {
@@ -22,6 +24,13 @@ internal data class WidgetOptions(val timeline: Boolean = true, val progress: Bo
             .putBoolean("netWorth", netWorth).putBoolean("privacy", privacy).putString("shortcuts", shortcuts.joinToString(",")).apply()
     }
     companion object {
+        fun observe(context: Context) = callbackFlow {
+            val prefs = context.getSharedPreferences("today_widget", Context.MODE_PRIVATE)
+            val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(read(context)) }
+            prefs.registerOnSharedPreferenceChangeListener(listener)
+            trySend(read(context))
+            awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+        }
         fun read(context: Context): WidgetOptions {
             val p = context.getSharedPreferences("today_widget", Context.MODE_PRIVATE)
             return WidgetOptions(p.getBoolean("timeline", true), p.getBoolean("progress", true), p.getBoolean("money", true),
@@ -51,7 +60,7 @@ fun WidgetsScreen() {
                 Text("Today", style = MaterialTheme.typography.headlineSmall)
                 Text("Your next priority, at a glance", color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(12.dp))
-                Text("Compact: next item and three shortcuts\nExpanded: timeline and daily progress\nLarge: spending and upcoming payments", style = MaterialTheme.typography.bodyMedium)
+                Text("Tasks on the left, birthdays on the right. Enabled summaries appear at every size; scroll inside the widget for more.", style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = {
                     val manager = AppWidgetManager.getInstance(context)
                     if (manager.isRequestPinAppWidgetSupported) {
@@ -65,12 +74,12 @@ fun WidgetsScreen() {
         item {
             PremiumCard(Modifier.fillMaxWidth()) {
                 Text("Make it yours", style = MaterialTheme.typography.titleLarge)
-                Text("Applies to all Today widgets. Resize on your home screen to reveal more.", style = MaterialTheme.typography.bodySmall)
+                Text("Applies to all Today widgets. Financial amounts stay masked while privacy is enabled.", style = MaterialTheme.typography.bodySmall)
                 Option("Timeline", options.timeline) { update(options.copy(timeline = it)) }
                 Option("Water and calories", options.progress) { update(options.copy(progress = it)) }
                 Option("Money summary", options.money) { update(options.copy(money = it)) }
-                Option("Include net worth", options.netWorth) { update(options.copy(netWorth = it)) }
-                Option("Hide financial amounts", options.privacy) { update(options.copy(privacy = it)) }
+                Option("Show net worth", options.netWorth) { update(options.copy(netWorth = it)) }
+                Option("Show financial amounts", !options.privacy) { update(options.copy(privacy = !it)) }
             }
         }
         item {

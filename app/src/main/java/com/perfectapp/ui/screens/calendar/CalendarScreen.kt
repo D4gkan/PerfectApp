@@ -40,23 +40,26 @@ import com.perfectapp.ui.components.PremiumCard
 import com.perfectapp.ui.components.SectionHeader
 import java.time.format.DateTimeFormatter
 
-private enum class CalendarViewMode { AGENDA, MONTH }
+private enum class CalendarViewMode { AGENDA, MONTH, BIRTHDAYS }
 
 @Composable
 fun CalendarScreen(
     repository: CalendarRepository,
     onAddEvent: () -> Unit,
+    onAddBirthday: () -> Unit,
     onEditEvent: (Long) -> Unit
 ) {
     val viewModel: CalendarViewModel = viewModel(factory = viewModelFactory { CalendarViewModel(repository) })
     val state by viewModel.uiState.collectAsState()
+    val allEvents by repository.allEvents.collectAsState(initial = emptyList())
+    val birthdays = com.perfectapp.domain.calendar.Birthdays.upcoming(allEvents, java.time.LocalDate.now())
     var mode by remember { mutableStateOf(CalendarViewMode.AGENDA) }
     var pendingDelete by remember { mutableStateOf<com.perfectapp.data.entities.CalendarEventEntity?>(null) }
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddEvent) {
-                Icon(Icons.Filled.Add, contentDescription = "Add event")
+            FloatingActionButton(onClick = if (mode == CalendarViewMode.BIRTHDAYS) onAddBirthday else onAddEvent) {
+                Icon(Icons.Filled.Add, contentDescription = if (mode == CalendarViewMode.BIRTHDAYS) "Add birthday" else "Add event")
             }
         }
     ) { innerPadding ->
@@ -72,17 +75,27 @@ fun CalendarScreen(
                     SegmentedButton(
                         selected = mode == CalendarViewMode.AGENDA,
                         onClick = { mode = CalendarViewMode.AGENDA },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
                     ) { Text("Agenda") }
                     SegmentedButton(
                         selected = mode == CalendarViewMode.MONTH,
                         onClick = { mode = CalendarViewMode.MONTH },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
                     ) { Text("Month") }
+                    SegmentedButton(selected = mode == CalendarViewMode.BIRTHDAYS,
+                        onClick = { mode = CalendarViewMode.BIRTHDAYS },
+                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)) { Text("Birthdays") }
                 }
             }
 
-            if (mode == CalendarViewMode.AGENDA) {
+            if (mode == CalendarViewMode.BIRTHDAYS) {
+                if (birthdays.isEmpty()) item {
+                    EmptyState(title = "No birthdays yet", message = "Save a birthday for a yearly reminder and widget countdown.", actionLabel = "Add birthday", onActionClick = onAddBirthday)
+                }
+                items(birthdays) { occurrence ->
+                    EventRow(occurrence, { pendingDelete = occurrence.event }, {}, { onEditEvent(occurrence.event.id) })
+                }
+            } else if (mode == CalendarViewMode.AGENDA) {
                 if (state.upcomingAgenda.isEmpty()) {
                     item {
                         EmptyState(
@@ -154,11 +167,13 @@ private fun EventRow(occurrence: EventOccurrence, onDelete: () -> Unit, onToggle
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(text = occurrence.event.title, style = MaterialTheme.typography.titleMedium)
                 Text(occurrence.event.itemType.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() } + if (occurrence.event.isCompleted) " · completed" else "", style = MaterialTheme.typography.labelSmall)
                 Text(
-                    text = occurrence.occurrenceDateTime.format(DateTimeFormatter.ofPattern("EEE, MMM d 'at' h:mm a")) +
+                    text = if (occurrence.event.itemType == com.perfectapp.data.entities.CalendarItemType.BIRTHDAY)
+                        com.perfectapp.domain.calendar.Birthdays.countdown(occurrence.occurrenceDateTime.toLocalDate(), java.time.LocalDate.now())
+                    else occurrence.occurrenceDateTime.format(DateTimeFormatter.ofPattern(if (occurrence.event.isAllDay) "EEE, MMM d" else "EEE, MMM d 'at' h:mm a")) +
                         if (occurrence.event.isRepeating) " · repeats" else "",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

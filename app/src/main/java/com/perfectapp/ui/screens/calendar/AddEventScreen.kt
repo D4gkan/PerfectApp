@@ -42,7 +42,8 @@ import com.perfectapp.ui.components.TimePickerField
 fun AddEventScreen(
     repository: CalendarRepository,
     onSaved: () -> Unit,
-    existing: CalendarEventEntity? = null
+    existing: CalendarEventEntity? = null,
+    initialType: CalendarItemType = CalendarItemType.EVENT
 ) {
     var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
     var date by remember(existing?.id) { mutableStateOf(existing?.dateTime?.toLocalDate() ?: LocalDate.now()) }
@@ -51,7 +52,7 @@ fun AddEventScreen(
     var notes by remember(existing?.id) { mutableStateOf(existing?.notes.orEmpty()) }
     var recurrence by remember(existing?.id) { mutableStateOf(existing?.recurrenceUnit) }
     var recurrenceExpanded by remember { mutableStateOf(false) }
-    var itemType by remember(existing?.id) { mutableStateOf(existing?.itemType ?: CalendarItemType.EVENT) }
+    var itemType by remember(existing?.id) { mutableStateOf(existing?.itemType ?: initialType) }
     var typeExpanded by remember { mutableStateOf(false) }
     var reminderMinutes by remember(existing?.id) { mutableStateOf(existing?.reminderMinutesBefore) }
     var reminderExpanded by remember { mutableStateOf(false) }
@@ -60,7 +61,7 @@ fun AddEventScreen(
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (existing == null) "New Event" else "Edit Event") }) }
+        topBar = { TopAppBar(title = { Text(if (itemType == CalendarItemType.BIRTHDAY) "Birthday" else if (existing == null) "New Event" else "Edit Event") }) }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
@@ -101,19 +102,19 @@ fun AddEventScreen(
             item {
                 OutlinedTextField(
                     value = title, onValueChange = { title = it },
-                    label = { Text("Title") },
+                    label = { Text(if (itemType == CalendarItemType.BIRTHDAY) "Person's name" else "Title") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
             item {
                 DatePickerField("Date", date, { date = it }, Modifier.fillMaxWidth())
             }
-            if (!isAllDay) {
+            if (!isAllDay && itemType != CalendarItemType.BIRTHDAY) {
                 item {
                     TimePickerField("Time", time, { time = it }, Modifier.fillMaxWidth())
                 }
             }
-            item {
+            if (itemType != CalendarItemType.BIRTHDAY) item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -122,7 +123,8 @@ fun AddEventScreen(
                     Switch(checked = isAllDay, onCheckedChange = { isAllDay = it })
                 }
             }
-            item {
+            if (itemType == CalendarItemType.BIRTHDAY) item { Text("All day. Repeats every year. Shown separately in your widget.") }
+            else item {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = recurrence?.name ?: "Does not repeat",
@@ -173,15 +175,15 @@ fun AddEventScreen(
                             errorMessage = "Title is required"
                             return@Button
                         }
-                        val eventTime = if (isAllDay) LocalTime.MIDNIGHT else time
+                        val eventTime = if (isAllDay || itemType == CalendarItemType.BIRTHDAY) LocalTime.MIDNIGHT else time
                         errorMessage = null
                         val event = CalendarEventEntity(
                             id = existing?.id ?: 0,
                             title = title,
                             dateTime = LocalDateTime.of(date, eventTime),
-                            isAllDay = isAllDay,
+                            isAllDay = isAllDay || itemType == CalendarItemType.BIRTHDAY,
                             notes = notes.ifBlank { null },
-                            recurrenceUnit = recurrence
+                            recurrenceUnit = if (itemType == CalendarItemType.BIRTHDAY) RecurrenceUnit.YEARLY else recurrence
                             ,itemType = itemType,
                             isCompleted = existing?.isCompleted ?: false,
                             reminderMinutesBefore = reminderMinutes

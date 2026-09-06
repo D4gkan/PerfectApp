@@ -72,7 +72,7 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
     if (!settings.onboardingComplete) { OnboardingScreen(container); return }
     val navController = rememberNavController()
     androidx.compose.runtime.LaunchedEffect(widgetRoute) {
-        if (widgetRoute != null && (widgetRoute in setOf("home", "diet", "wealth", "wealth/add-transaction", "calendar", "calendar/add", "renewals", "widgets", "diet/add") || widgetRoute.matches(Regex("calendar/edit/[0-9]+")))) {
+        if (widgetRoute != null && (widgetRoute in setOf("home", "diet", "wealth", "wealth/add-transaction", "calendar", "calendar/add", "calendar/birthday", "renewals", "widgets", "diet/add") || widgetRoute.matches(Regex("calendar/edit/[0-9]+")))) {
             navController.navigate(widgetRoute) { launchSingleTop = true }
         }
     }
@@ -187,8 +187,14 @@ fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
                 CalendarScreen(
                     repository = container.calendarRepository,
                     onAddEvent = { navController.navigate("calendar/add") },
+                    onAddBirthday = { navController.navigate("calendar/birthday") },
                     onEditEvent = { id -> navController.navigate("calendar/edit/$id") }
                 )
+            }
+            composable("calendar/birthday") {
+                AddEventScreen(repository = container.calendarRepository,
+                    onSaved = { navController.popBackStack() },
+                    initialType = com.perfectapp.data.entities.CalendarItemType.BIRTHDAY)
             }
             composable("calendar/add") {
                 AddEventScreen(
