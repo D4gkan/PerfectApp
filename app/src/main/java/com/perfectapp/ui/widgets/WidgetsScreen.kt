@@ -1,45 +1,103 @@
-package com.perfectapp.ui.widgets
+﻿package com.perfectapp.ui.widgets
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.perfectapp.ui.components.PremiumCard
+import kotlinx.coroutines.launch
+
+internal data class WidgetOptions(val timeline: Boolean = true, val progress: Boolean = true, val money: Boolean = true,
+    val netWorth: Boolean = false, val privacy: Boolean = true, val shortcuts: List<String> = listOf("Water", "Expense", "Event")) {
+    fun save(context: Context) {
+        context.getSharedPreferences("today_widget", Context.MODE_PRIVATE).edit()
+            .putBoolean("timeline", timeline).putBoolean("progress", progress).putBoolean("money", money)
+            .putBoolean("netWorth", netWorth).putBoolean("privacy", privacy).putString("shortcuts", shortcuts.joinToString(",")).apply()
+    }
+    companion object {
+        fun read(context: Context): WidgetOptions {
+            val p = context.getSharedPreferences("today_widget", Context.MODE_PRIVATE)
+            return WidgetOptions(p.getBoolean("timeline", true), p.getBoolean("progress", true), p.getBoolean("money", true),
+                p.getBoolean("netWorth", false), p.getBoolean("privacy", true), p.getString("shortcuts", "Water,Expense,Event")!!.split(","))
+        }
+    }
+}
 
 @Composable
 fun WidgetsScreen() {
     val context = LocalContext.current
-    val manager = AppWidgetManager.getInstance(context)
+    val scope = rememberCoroutineScope()
+    var options by remember { mutableStateOf(WidgetOptions.read(context)) }
     var message by remember { mutableStateOf<String?>(null) }
+    fun update(next: WidgetOptions) {
+        options = next
+        next.save(context)
+        scope.launch { WidgetRefresh.request(context) }
+    }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Text("Your day, at a glance", style = MaterialTheme.typography.headlineMedium)
-            Text("Add a widget to your phone's home screen. Resize it to see more.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Your day, together", style = MaterialTheme.typography.headlineMedium)
+            Text("One Today widget for your plans, progress and payments.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        item { message?.let { Text(it, color = MaterialTheme.colorScheme.primary) } }
-        listOf(
-            Triple("Home dashboard", "Upcoming events, total net worth and recent transactions", HomeDashboardWidgetReceiver::class.java),
-            Triple("Next event", "Your closest upcoming calendar event", NextEventWidgetReceiver::class.java),
-            Triple("Today's schedule", "Today's events, including repeats", TodayScheduleWidgetReceiver::class.java),
-            Triple("Reminders", "Renewals and subscriptions in due-date order", UpcomingRemindersWidgetReceiver::class.java)
-        ).forEach { (title, description, receiver) ->
-            item {
-                PremiumCard(Modifier.fillMaxWidth()) {
-                    Text(title, style = MaterialTheme.typography.titleLarge)
-                    Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = {
-                        if (manager.isRequestPinAppWidgetSupported) {
-                            manager.requestPinAppWidget(ComponentName(context, receiver), null, null)
-                            message = "Confirm the widget in your launcher's prompt."
-                        } else message = "Long-press your home screen, choose Widgets, then Perfect App."
-                    }, modifier = Modifier.padding(top = 12.dp)) { Text("Add widget") }
+        item {
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text("Today", style = MaterialTheme.typography.headlineSmall)
+                Text("Your next priority, at a glance", color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(12.dp))
+                Text("Compact: next item and three shortcuts\nExpanded: timeline and daily progress\nLarge: spending and upcoming payments", style = MaterialTheme.typography.bodyMedium)
+                Button(onClick = {
+                    val manager = AppWidgetManager.getInstance(context)
+                    if (manager.isRequestPinAppWidgetSupported) {
+                        manager.requestPinAppWidget(ComponentName(context, HomeDashboardWidgetReceiver::class.java), null, null)
+                        message = "Confirm Today in your launcher's prompt."
+                    } else message = "Long-press your home screen, choose Widgets, then Perfect App → Today."
+                }, modifier = Modifier.padding(top = 12.dp)) { Text("Add Today widget") }
+                message?.let { Text(it) }
+            }
+        }
+        item {
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text("Make it yours", style = MaterialTheme.typography.titleLarge)
+                Text("Applies to all Today widgets. Resize on your home screen to reveal more.", style = MaterialTheme.typography.bodySmall)
+                Option("Timeline", options.timeline) { update(options.copy(timeline = it)) }
+                Option("Water and calories", options.progress) { update(options.copy(progress = it)) }
+                Option("Money summary", options.money) { update(options.copy(money = it)) }
+                Option("Include net worth", options.netWorth) { update(options.copy(netWorth = it)) }
+                Option("Hide financial amounts", options.privacy) { update(options.copy(privacy = it)) }
+            }
+        }
+        item {
+            PremiumCard(Modifier.fillMaxWidth()) {
+                Text("Quick actions", style = MaterialTheme.typography.titleLarge)
+                Text("Tap a slot to change it. Water logs your configured glass size; tap Undo water to remove that entry.", style = MaterialTheme.typography.bodySmall)
+                options.shortcuts.forEachIndexed { index, name ->
+                    var expanded by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { expanded = true }) { Text("${index + 1}. $name") }
+                        DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                            listOf("Water", "Expense", "Event", "Meal").filter { it == name || it !in options.shortcuts }.forEach { choice ->
+                                DropdownMenuItem(text = { Text(choice) }, onClick = {
+                                    update(options.copy(shortcuts = options.shortcuts.toMutableList().also { it[index] = choice }))
+                                    expanded = false
+                                })
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+}
+@Composable private fun Option(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Switch(checked, onCheckedChange = onChange)
     }
 }

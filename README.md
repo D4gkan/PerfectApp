@@ -28,14 +28,14 @@ and no dependency on an internet connection.
 
 ### Refreshed navigation and widgets
 
-- System-aware light and dark themes with teal accents, animated tab selection, screen fades, and smooth card/progress updates
+- System-aware light and dark themes with ruby red accents and neutral silver surfaces, animated tab selection, screen fades, and smooth card/progress updates
 - Labeled, horizontally scrollable bottom tabs for every section, including Car, Renewals, Widgets, Search, Alerts, Backup, and Settings
 - A Widgets tab with launcher pinning buttons (or manual instructions for launchers without pinning support)
 - A resizable dashboard widget with upcoming calendar occurrences, USD net worth including gold, and recent transactions
 - Widgets load saved data before rendering, observe live changes, refresh after database changes, and request periodic launcher updates every 30 minutes (Android may defer these)
 - Calendar widgets include recurring events and omit completed items; old repeating series no longer disappear after 500 elapsed occurrences
 
-To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add widget** under Home dashboard, and confirm the launcher prompt. Expand the widget to show more events and transactions. Tap the widget to open the app.
+To add the dashboard widget, swipe the bottom tabs to **Widgets**, choose **Add Today widget**, and confirm the launcher prompt. Expand the widget to reveal the timeline, water/calorie progress, and money summary. Configure summaries, financial privacy, and three shortcuts in Widgets. Tap individual items to open the relevant screen.
 
 Validation: debug build and 10 unit tests pass, including four calendar regression tests. Emulator checks covered navigation, dashboard widget pinning/rendering, opening the app from the widget, and automatic refresh after saving a recurring calendar event.
 
@@ -66,7 +66,7 @@ Validation: debug build and 10 unit tests pass, including four calendar regressi
 
 ### Android-native utility
 
-- Four Glance home-screen widgets for dashboard data, schedules, events, and reminders
+- One responsive Today home-screen widget for events, reminders, daily progress, and money
 - AlarmManager wake-ups with WorkManager-powered notification delivery and daily summaries
 - Notifications rescheduled after device reboot
 - Local backup and restore support

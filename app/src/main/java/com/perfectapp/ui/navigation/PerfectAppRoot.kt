@@ -67,10 +67,15 @@ import com.perfectapp.ui.screens.search.SearchScreen
 import com.perfectapp.ui.screens.onboarding.OnboardingScreen
 
 @Composable
-fun PerfectAppRoot(container: AppContainer) {
+fun PerfectAppRoot(container: AppContainer, widgetRoute: String? = null) {
     val settings by container.settingsRepository.settings.collectAsState(initial = com.perfectapp.data.repository.AppSettings())
     if (!settings.onboardingComplete) { OnboardingScreen(container); return }
     val navController = rememberNavController()
+    androidx.compose.runtime.LaunchedEffect(widgetRoute) {
+        if (widgetRoute != null && (widgetRoute in setOf("home", "diet", "wealth", "wealth/add-transaction", "calendar", "calendar/add", "renewals", "widgets", "diet/add") || widgetRoute.matches(Regex("calendar/edit/[0-9]+")))) {
+            navController.navigate(widgetRoute) { launchSingleTop = true }
+        }
+    }
 
     Scaffold(
         bottomBar = {

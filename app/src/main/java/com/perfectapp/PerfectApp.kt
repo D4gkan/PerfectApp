@@ -30,7 +30,7 @@ class PerfectApp : Application() {
         val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val changes = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
         com.perfectapp.data.PerfectDatabase.getInstance(this).invalidationTracker.addObserver(
-            object : androidx.room.InvalidationTracker.Observer("assets", "transactions", "exchange_rates", "gold_settings", "subscriptions", "calendar_events", "reminders") {
+            object : androidx.room.InvalidationTracker.Observer("assets", "transactions", "exchange_rates", "gold_settings", "subscriptions", "calendar_events", "reminders", "water_entries", "meal_entries", "diet_goals") {
                 override fun onInvalidated(tables: Set<String>) { changes.trySend(Unit) }
             }
         )

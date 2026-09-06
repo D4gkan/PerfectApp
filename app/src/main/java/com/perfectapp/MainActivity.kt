@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         val container = (application as PerfectApp).container
         setContent {
             PerfectAppTheme {
-                PerfectAppRoot(container = container)
+                PerfectAppRoot(container = container, widgetRoute = intent.getStringExtra("widget_route"))
             }
         }
     }

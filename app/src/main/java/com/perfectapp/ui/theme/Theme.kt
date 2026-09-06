@@ -8,12 +8,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val PerfectColorScheme = darkColorScheme(
-    primary = androidx.compose.ui.graphics.Color(0xFF70DCC5),
+    primary = androidx.compose.ui.graphics.Color(0xFFFFB3B8),
     onPrimary = BackgroundDark,
-    primaryContainer = androidx.compose.ui.graphics.Color(0xFF244D46),
-    onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFBCF0E3),
-    secondary = androidx.compose.ui.graphics.Color(0xFFB8B4FF),
-    onSecondary = TextPrimary,
+    primaryContainer = androidx.compose.ui.graphics.Color(0xFF691923),
+    onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFFFFDADD),
+    secondary = androidx.compose.ui.graphics.Color(0xFFC7C7CE),
+    onSecondary = BackgroundDark,
     background = BackgroundDark,
     onBackground = TextPrimary,
     surface = SurfaceDark,
@@ -21,6 +21,7 @@ private val PerfectColorScheme = darkColorScheme(
     surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = TextSecondary,
     outline = BorderDark,
+    surfaceTint = androidx.compose.ui.graphics.Color(0xFFFFB3B8),
     error = NegativeRed
 )
 
@@ -31,16 +32,16 @@ fun PerfectAppTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) PerfectColorScheme else lightColorScheme(
-            primary = androidx.compose.ui.graphics.Color(0xFF006B5C),
+            primary = androidx.compose.ui.graphics.Color(0xFF9B111E),
             onPrimary = androidx.compose.ui.graphics.Color.White,
-            primaryContainer = androidx.compose.ui.graphics.Color(0xFFBCF0E3),
-            onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF00382F),
-            secondary = androidx.compose.ui.graphics.Color(0xFF6255A4),
-            background = androidx.compose.ui.graphics.Color(0xFFF3F7F6),
+            primaryContainer = androidx.compose.ui.graphics.Color(0xFFFFDADD),
+            onPrimaryContainer = androidx.compose.ui.graphics.Color(0xFF400009),
+            secondary = androidx.compose.ui.graphics.Color(0xFF5D5D67),
+            background = androidx.compose.ui.graphics.Color(0xFFF7F7F9),
             surface = androidx.compose.ui.graphics.Color.White,
-            surfaceVariant = androidx.compose.ui.graphics.Color(0xFFE7EFEC),
-            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF50635D),
-            outline = androidx.compose.ui.graphics.Color(0xFFD4E1DC)
+            surfaceVariant = androidx.compose.ui.graphics.Color(0xFFEBEBEF),
+            onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFF55555F),
+            outline = androidx.compose.ui.graphics.Color(0xFFC7C7CF)
         ),
         typography = PerfectTypography,
         content = {
